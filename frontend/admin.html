@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NYC LMS — Admin Dashboard</title>
+  <meta name="description" content="NYC LMS admin dashboard for managing courses." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/admin.css" />
+</head>
+<body>
+  <div class="app">
+
+    <!-- ============ SIDEBAR ============ -->
+    <aside class="sidebar" id="sidebar" aria-label="Main navigation">
+      <div class="sidebar__brand">
+        <div class="brand-mark" aria-hidden="true">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 10L12 5 2 10l10 5 10-5z"/>
+            <path d="M6 12v5c3 3 9 3 12 0v-5"/>
+          </svg>
+        </div>
+        <span class="brand-name">NYC LMS</span>
+      </div>
+
+      <nav class="sidebar__nav">
+        <p class="nav-label">Overview</p>
+        <a href="#" class="nav-link active" aria-current="page">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+          <span>Dashboard</span>
+        </a>
+        <a href="#courses" class="nav-link">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+          <span>Courses</span>
+        </a>
+
+        <p class="nav-label">Management</p>
+        <a href="#" class="nav-link nav-link--disabled" aria-disabled="true" title="Coming soon">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+          <span>Students</span>
+          <span class="nav-badge">Soon</span>
+        </a>
+        <a href="#" class="nav-link nav-link--disabled" aria-disabled="true" title="Coming soon">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-6 4 3 5-8"/></svg>
+          <span>Analytics</span>
+          <span class="nav-badge">Soon</span>
+        </a>
+
+        <p class="nav-label">System</p>
+        <a href="#" class="nav-link nav-link--disabled" aria-disabled="true" title="Coming soon">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+          <span>Settings</span>
+          <span class="nav-badge">Soon</span>
+        </a>
+      </nav>
+
+      <div class="sidebar__footer">
+        <div class="sidebar__user">
+          <div class="avatar avatar--sm">A</div>
+          <div class="sidebar__user-info">
+            <span class="sidebar__user-name">Admin</span>
+            <span class="sidebar__user-role">Administrator</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Sidebar scrim for mobile -->
+    <div class="scrim" id="scrim" hidden></div>
+
+    <!-- ============ MAIN ============ -->
+    <div class="main">
+
+      <!-- Top bar -->
+      <header class="topbar">
+        <button class="icon-btn topbar__menu" id="btnToggleSidebar" aria-label="Toggle navigation menu" aria-expanded="false">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+        </button>
+
+        <div class="topbar__title">
+          <h1>Admin Dashboard</h1>
+          <p>Welcome back — here's what's happening in your academy.</p>
+        </div>
+
+        <div class="topbar__actions">
+          <button class="btn btn--primary" id="btnOpenCreateModal">
+            <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+            Create Course
+          </button>
+
+          <div class="profile">
+            <button class="profile__btn" id="btnProfile" aria-haspopup="true" aria-expanded="false" aria-label="Admin profile menu">
+              <div class="avatar">A</div>
+              <div class="profile__meta">
+                <span class="profile__name">Admin</span>
+                <span class="profile__role">admin@nyclms.com</span>
+              </div>
+              <svg class="profile__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            <div class="profile__menu" id="profileMenu" role="menu" hidden>
+              <a href="#" role="menuitem" class="profile__menu-item">Profile settings</a>
+              <a href="#" role="menuitem" class="profile__menu-item">Sign out</a>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- Content -->
+      <main class="content" id="mainContent">
+
+        <!-- Stat cards -->
+        <section class="stats" aria-label="Key statistics">
+          <article class="stat-card">
+            <div class="stat-card__icon stat-card__icon--indigo">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+            </div>
+            <div>
+              <p class="stat-card__label">Total Courses</p>
+              <p class="stat-card__value" id="statTotalCourses" aria-live="polite">—</p>
+            </div>
+          </article>
+
+          <article class="stat-card">
+            <div class="stat-card__icon stat-card__icon--green">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg>
+            </div>
+            <div>
+              <p class="stat-card__label">Published Courses</p>
+              <p class="stat-card__value" id="statPublishedCourses" aria-live="polite">—</p>
+            </div>
+          </article>
+
+          <article class="stat-card">
+            <div class="stat-card__icon stat-card__icon--amber">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+            </div>
+            <div>
+              <p class="stat-card__label">Total Students</p>
+              <p class="stat-card__value stat-card__value--placeholder">Coming soon</p>
+            </div>
+          </article>
+
+          <article class="stat-card">
+            <div class="stat-card__icon stat-card__icon--violet">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+            </div>
+            <div>
+              <p class="stat-card__label">Total Lessons</p>
+              <p class="stat-card__value stat-card__value--placeholder">Coming soon</p>
+            </div>
+          </article>
+        </section>
+
+        <!-- Courses -->
+        <section class="panel" id="courses" aria-labelledby="coursesHeading">
+          <div class="panel__header">
+            <div>
+              <h2 id="coursesHeading">Courses</h2>
+              <p class="panel__subtitle" id="coursesSubtitle">Manage the courses in your catalog.</p>
+            </div>
+            <div class="panel__tools">
+              <div class="search-box">
+                <svg class="search-box__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+                <input type="search" id="courseSearch" placeholder="Search courses…" aria-label="Search courses" autocomplete="off" />
+              </div>
+              <button class="btn btn--primary" id="btnOpenCreateModal2">
+                <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                Create Course
+              </button>
+            </div>
+          </div>
+
+          <!-- Loading state -->
+          <div class="state state--loading" id="coursesLoading" role="status" aria-live="polite">
+            <div class="spinner" aria-hidden="true"></div>
+            <p>Loading courses…</p>
+          </div>
+
+          <!-- Error state -->
+          <div class="state state--error" id="coursesError" hidden role="alert">
+            <div class="state__icon state__icon--error" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+            </div>
+            <h3>Couldn't load courses</h3>
+            <p id="coursesErrorMessage">The server could not be reached.</p>
+            <button class="btn btn--secondary" id="btnRetryLoad">Try again</button>
+          </div>
+
+          <!-- Empty state -->
+          <div class="state state--empty" id="coursesEmpty" hidden>
+            <div class="state__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+            </div>
+            <h3>No courses yet</h3>
+            <p>Create your first course to start building your catalog.</p>
+            <button class="btn btn--primary" id="btnEmptyCreate">Create Course</button>
+          </div>
+
+          <!-- Course table -->
+          <div class="table-wrap" id="coursesTableWrap" hidden>
+            <table class="course-table">
+              <thead>
+                <tr>
+                  <th scope="col">Course</th>
+                  <th scope="col">Status</th>
+                  <th scope="col">ID</th>
+                  <th scope="col">Created</th>
+                  <th scope="col" class="col-actions"><span class="visually-hidden">Actions</span></th>
+                </tr>
+              </thead>
+              <tbody id="coursesTableBody"><!-- rows injected by JS --></tbody>
+            </table>
+          </div>
+        </section>
+
+        <footer class="footer">
+          <p>NYC LMS Admin · Powered by your Node.js + Express + PostgreSQL backend</p>
+        </footer>
+      </main>
+    </div>
+  </div>
+
+  <!-- ============ CREATE COURSE MODAL ============ -->
+  <div class="modal" id="createModal" role="dialog" aria-modal="true" aria-labelledby="createModalTitle" hidden>
+    <div class="modal__backdrop" data-close-modal></div>
+    <div class="modal__card">
+      <div class="modal__header">
+        <div>
+          <h2 id="createModalTitle">Create a new course</h2>
+          <p class="modal__subtitle">Fill in the details below to add a course to your catalog.</p>
+        </div>
+        <button class="icon-btn" data-close-modal aria-label="Close dialog">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <form id="createCourseForm" novalidate>
+        <div class="field">
+          <label for="courseTitle">Course title <span class="req" aria-hidden="true">*</span></label>
+          <input type="text" id="courseTitle" name="title" placeholder="e.g. Introduction to Web Development" maxlength="200" required />
+          <p class="field__error" id="titleError" hidden>Please enter a course title.</p>
+        </div>
+
+        <div class="field">
+          <label for="courseDescription">Description</label>
+          <textarea id="courseDescription" name="description" rows="4" placeholder="What will students learn in this course?"></textarea>
+        </div>
+
+        <div class="field">
+          <label for="courseThumbnail">Thumbnail URL</label>
+          <input type="url" id="courseThumbnail" name="thumbnail" placeholder="https://example.com/image.jpg" />
+          <p class="field__hint">A direct link to an image (JPG, PNG, WebP).</p>
+        </div>
+
+        <label class="checkbox-row" for="coursePublished">
+          <input type="checkbox" id="coursePublished" name="published" />
+          <span class="checkbox-row__text">
+            <span class="checkbox-row__title">Publish immediately</span>
+            <span class="checkbox-row__desc">Published courses are visible to students. Leave unchecked to save as a draft.</span>
+          </span>
+        </label>
+
+        <div class="modal__error" id="formError" role="alert" hidden></div>
+
+        <div class="modal__footer">
+          <button type="button" class="btn btn--ghost" data-close-modal id="btnCancelCreate">Cancel</button>
+          <button type="submit" class="btn btn--primary" id="btnSubmitCreate">
+            <span class="btn__label">Create Course</span>
+            <span class="btn__spinner" aria-hidden="true"></span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast notifications -->
+  <div class="toasts" id="toasts" aria-live="polite" aria-atomic="false"></div>
+
+  <script src="js/admin.js" defer></script>
+</body>
+</html>
