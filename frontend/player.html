@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#050403">
+<title>Course Player — NYC LMS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/theme.css">
+<link rel="stylesheet" href="css/player.css">
+</head>
+<body>
+
+  <div class="ambient-glow ambient-glow--top"></div>
+
+  <!-- ================= Top Navbar ================= -->
+  <header class="navbar">
+    <div class="navbar-left">
+      <a href="dashboard.html" class="navbar-brand">
+        <div class="logo-mark-3d" aria-hidden="true">NYC</div>
+        <div class="logo-text">
+          <span class="name">NYC LMS</span>
+          <span class="tag">Learning Platform</span>
+        </div>
+      </a>
+      <div class="navbar-course">
+        <div class="divider"></div>
+        <span class="course-title" id="courseTitle">Course</span>
+      </div>
+    </div>
+
+    <div class="navbar-right">
+      <div class="user-pill card-3d">
+        <div class="avatar-3d" aria-hidden="true">P</div>
+        <span class="student-name" id="studentName">Student</span>
+      </div>
+      <a href="dashboard.html" class="btn-3d btn-3d--secondary btn-sm" style="text-decoration:none;">
+        Back to Dashboard
+      </a>
+    </div>
+  </header>
+
+  <!-- ================= Main Player Layout ================= -->
+  <main class="main-layout">
+
+    <!-- ============ LEFT: Cinema Video Column ============ -->
+    <section class="video-column">
+
+      <!-- Cinema 3D Video Container Shell -->
+      <div class="player-shell card-3d">
+        <div class="player paused" id="player">
+          <!-- Ambient Video Backlight Glow -->
+          <div class="video-ambient-backlight" id="videoBacklight"></div>
+
+          <video id="lessonVideo" preload="metadata" playsinline>
+            Your browser does not support HTML5 video streaming.
+          </video>
+
+          <!-- Resume Indicator Pill -->
+          <div class="resume-pill" id="resumePill">
+            <span class="dot"></span>
+            <span id="resumePillText">Resume from 0:00</span>
+          </div>
+
+          <!-- Lesson Completed Toast -->
+          <div class="completed-toast" id="completedToast">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>
+            Lesson completed
+          </div>
+
+          <!-- Big Center Play Button (Visible while paused) -->
+          <button class="big-play" id="bigPlay" aria-label="Play video">
+            <span class="big-play-circle">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="#fff"><path d="M8 5.5v13l11-6.5z"/></svg>
+            </span>
+          </button>
+
+          <!-- Custom Floating Control Bar -->
+          <div class="controls" id="controls">
+
+            <!-- Scrubber Progress Bar -->
+            <div class="progress-area" id="progressArea" role="slider" aria-label="Seek">
+              <div class="progress-track">
+                <div class="progress-buffered" id="progressBuffered"></div>
+                <div class="progress-filled" id="progressFilled"></div>
+                <div class="progress-thumb" id="progressThumb"></div>
+              </div>
+            </div>
+
+            <div class="controls-row">
+
+              <!-- Play / Pause -->
+              <button class="ctrl-btn" id="playBtn" aria-label="Play or pause">
+                <svg id="iconPlay" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l11-6.5z"/></svg>
+                <svg id="iconPause" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="display:none"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg>
+              </button>
+
+              <!-- Volume Control -->
+              <div class="volume-group">
+                <button class="ctrl-btn" id="muteBtn" aria-label="Mute or unmute">
+                  <svg id="iconVolOn" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.5 8.5a5 5 0 010 7" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/><path d="M19 6a8.5 8.5 0 010 12" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>
+                  <svg id="iconVolOff" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="display:none"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 9l6 6M22 9l-6 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
+                </button>
+                <input type="range" class="volume-slider" id="volumeSlider" min="0" max="1" step="0.05" value="1" aria-label="Volume">
+              </div>
+
+              <!-- Time Display -->
+              <span class="time-display">
+                <span id="currentTime">0:00</span><span class="sep">/</span><span id="totalDuration">0:00</span>
+              </span>
+
+              <div class="spacer"></div>
+
+              <!-- Playback Speed -->
+              <div class="speed-popover-wrap">
+                <button class="speed-btn" id="speedBtn" aria-label="Playback speed">1x</button>
+                <div class="speed-menu" id="speedMenu" role="menu"></div>
+              </div>
+
+              <!-- Picture-in-picture -->
+              <button class="ctrl-btn" id="pipBtn" aria-label="Picture in picture" title="Picture in picture">
+                <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="2"/><rect x="12.5" y="12" width="7" height="5" rx="1" fill="currentColor" stroke="none"/></svg>
+              </button>
+
+              <!-- Fullscreen -->
+              <button class="ctrl-btn" id="fsBtn" aria-label="Fullscreen" title="Fullscreen (F)">
+                <svg id="iconFsEnter" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+                <svg id="iconFsExit" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg>
+              </button>
+
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Lesson Header Info -->
+      <div class="lesson-header card-3d">
+        <span class="badge-3d badge-3d--orange" id="lessonMeta">Lesson Info</span>
+        <h1 class="lesson-title" id="lessonTitle">Select a lesson</h1>
+        <p class="lesson-desc" id="lessonStatus" aria-live="polite"></p>
+      </div>
+
+      <!-- Overview / Notes / Resources Tabs -->
+      <div class="tabs-card card-3d">
+        <nav class="tabs-nav" role="tablist">
+          <button class="tab-btn active" data-tab="overview" role="tab">Overview</button>
+          <button class="tab-btn" data-tab="notes" role="tab">Notes</button>
+          <button class="tab-btn" data-tab="resources" role="tab">Resources</button>
+        </nav>
+
+        <div class="tab-panel active" id="panel-overview" role="tabpanel">
+          <h3>About this lesson</h3>
+          <p id="lessonOverview">Select a lesson from the course curriculum to start playing.</p>
+        </div>
+
+        <div class="tab-panel" id="panel-notes" role="tabpanel">
+          <h3>My Notes</h3>
+          <p class="empty-note">Notes recorded during video streaming will appear here.</p>
+        </div>
+
+        <div class="tab-panel" id="panel-resources" role="tabpanel">
+          <h3>Lesson Resources</h3>
+          <p class="empty-note">No additional download resources attached to this lesson.</p>
+        </div>
+      </div>
+
+      <!-- Prev / Next Lesson Buttons -->
+      <div class="lesson-nav">
+        <button class="nav-lesson-btn" id="prevBtn" disabled>
+          <span class="nav-label">&larr; Previous Lesson</span>
+          <span class="nav-name" id="prevLessonName">—</span>
+        </button>
+        <button class="nav-lesson-btn next" id="nextBtn">
+          <span class="nav-label">Next Lesson &rarr;</span>
+          <span class="nav-name" id="nextLessonName">—</span>
+        </button>
+      </div>
+
+    </section>
+
+    <!-- ============ RIGHT: Curriculum Sidebar ============ -->
+    <aside class="sidebar card-3d" aria-label="Course content">
+      <div class="sidebar-header">
+        <h2>Curriculum</h2>
+        <div class="sidebar-sub" id="courseCounts">0 Modules • 0 Lessons</div>
+      </div>
+
+      <div class="curriculum" id="curriculum">
+        <p class="curriculum-status" id="curriculumStatus" role="status" aria-live="polite">Loading course content…</p>
+      </div>
+
+      <!-- Course Progress Footer -->
+      <div class="sidebar-footer">
+        <div class="progress-label-row">
+          <span>Overall Progress</span>
+          <span class="progress-percent" id="courseProgressPct">0%</span>
+        </div>
+        <div class="course-progress-track">
+          <div class="course-progress-fill" id="courseProgressFill"></div>
+        </div>
+
+        <div class="course-complete-note" id="courseCompleteNote" hidden>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>
+          Course Finished — Congratulations!
+        </div>
+      </div>
+    </aside>
+
+  </main>
+
+  <script src="js/app-3d.js"></script>
+  <script src="js/player.js"></script>
+</body>
+</html>

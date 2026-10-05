@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Create your NYC LMS account and start learning today.">
+  <meta name="theme-color" content="#060504">
+  <title>Create Account — NYC LMS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/theme.css">
+  <style>
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 20px;
+    }
+
+    .auth-container {
+      width: min(100%, 1060px);
+      display: grid;
+      grid-template-columns: 1fr minmax(360px, 480px);
+      gap: clamp(32px, 7vw, 100px);
+      align-items: center;
+      position: relative;
+      z-index: 10;
+    }
+
+    /* Left Hero */
+    .auth-hero {
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+    }
+
+    .brand-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 14px;
+      text-decoration: none;
+      width: fit-content;
+    }
+
+    .brand-icon-3d {
+      width: 52px; height: 52px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #ff7a3d, #b83007);
+      box-shadow: 0 8px 28px rgba(255,107,43,0.5), 0 1px 0 rgba(255,255,255,0.3) inset;
+      display: grid;
+      place-items: center;
+      color: #fff;
+      font-family: var(--font-display);
+      font-weight: 900;
+      font-size: 1.15rem;
+    }
+
+    .brand-title {
+      font-family: var(--font-display);
+      font-weight: 800;
+      font-size: 1.45rem;
+      color: var(--text-primary);
+      letter-spacing: -0.02em;
+    }
+
+    .hero-heading {
+      font-family: var(--font-display);
+      font-size: clamp(2.4rem, 5vw, 3.8rem);
+      font-weight: 900;
+      line-height: 1.06;
+      letter-spacing: -0.035em;
+      background: linear-gradient(180deg, #ffffff 0%, #d8cfc5 60%, #b5a99a 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero-heading span {
+      background: linear-gradient(135deg, #ff9d6e, #ff5c1a);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero-subtext {
+      font-size: 1.05rem;
+      line-height: 1.65;
+      color: var(--text-secondary);
+      max-width: 480px;
+    }
+
+    /* Stat row */
+    .stat-row {
+      display: flex;
+      gap: 28px;
+    }
+
+    .stat-item {}
+    .stat-num {
+      font-family: var(--font-display);
+      font-size: 2rem;
+      font-weight: 900;
+      color: #fff;
+      letter-spacing: -0.03em;
+      line-height: 1;
+    }
+    .stat-label {
+      font-size: 0.78rem;
+      color: var(--text-tertiary);
+      margin-top: 3px;
+    }
+
+    /* Right Card */
+    .auth-card {
+      padding: 40px 38px;
+      background: rgba(12, 10, 8, 0.82);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow-xl);
+      backdrop-filter: blur(32px);
+      -webkit-backdrop-filter: blur(32px);
+      transition: border-color 0.3s ease;
+      position: relative;
+      z-index: 10;
+    }
+
+    .auth-card:hover { border-color: var(--orange-border); }
+
+    .auth-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(
+        600px circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
+        rgba(255,255,255,0.035),
+        transparent 40%
+      );
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      border-radius: inherit;
+    }
+    .auth-card:hover::before { opacity: 1; }
+
+    .auth-kicker {
+      display: block;
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      color: var(--orange);
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .auth-title {
+      font-family: var(--font-display);
+      font-size: 1.95rem;
+      font-weight: 800;
+      color: var(--text-primary);
+      letter-spacing: -0.025em;
+      line-height: 1.1;
+    }
+
+    .auth-subtitle {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      margin-top: 6px;
+      margin-bottom: 26px;
+    }
+
+    .form-group { margin-bottom: 18px; }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 7px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .password-wrap { position: relative; }
+    .password-wrap input { padding-right: 80px; }
+
+    .password-toggle {
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: transparent;
+      border: none;
+      color: var(--text-tertiary);
+      font-size: 0.78rem;
+      font-weight: 700;
+      padding: 6px 10px;
+      cursor: pointer;
+      border-radius: var(--radius-sm);
+      transition: color 0.15s ease;
+      font-family: var(--font-sans);
+    }
+    .password-toggle:hover { color: var(--text-primary); }
+
+    /* Password strength */
+    .strength-meter {
+      margin-top: 8px;
+    }
+
+    .strength-bar {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 5px;
+    }
+
+    .strength-seg {
+      flex: 1;
+      height: 3px;
+      border-radius: 2px;
+      background: rgba(255,255,255,0.08);
+      transition: background 0.3s ease;
+    }
+
+    .strength-label {
+      font-size: 0.72rem;
+      color: var(--text-tertiary);
+      transition: color 0.3s ease;
+    }
+
+    /* Strength levels */
+    [data-strength="1"] .strength-seg:nth-child(1) { background: #ef4444; }
+    [data-strength="2"] .strength-seg:nth-child(-n+2) { background: #f59e0b; }
+    [data-strength="3"] .strength-seg:nth-child(-n+3) { background: #22c55e; }
+    [data-strength="4"] .strength-seg { background: #22c55e; }
+
+    [data-strength="1"] .strength-label { color: #ef4444; }
+    [data-strength="2"] .strength-label { color: #f59e0b; }
+    [data-strength="3"] .strength-label { color: #22c55e; }
+    [data-strength="4"] .strength-label { color: #4ade80; }
+
+    /* Password match indicator */
+    .match-indicator {
+      font-size: 0.75rem;
+      margin-top: 5px;
+      height: 16px;
+      transition: color 0.2s ease;
+    }
+    .match-indicator.ok    { color: #4ade80; }
+    .match-indicator.error { color: #fca5a5; }
+
+    .switch-auth {
+      margin-top: 24px;
+      padding-top: 18px;
+      border-top: 1px solid var(--border-faint);
+      text-align: center;
+      font-size: 0.88rem;
+      color: var(--text-secondary);
+    }
+
+    .switch-auth a {
+      color: var(--orange);
+      font-weight: 700;
+      text-decoration: none;
+    }
+    .switch-auth a:hover { color: var(--orange-light); }
+
+    #message {
+      min-height: 0;
+      font-size: 0.85rem;
+    }
+    #message:not(:empty) {
+      margin-top: 14px;
+      padding: 12px 16px;
+      border-radius: var(--radius-md);
+      background: rgba(239,68,68,0.09);
+      border: 1px solid rgba(239,68,68,0.28);
+      color: #fca5a5;
+    }
+
+    @media (max-width: 860px) {
+      .auth-container {
+        grid-template-columns: 1fr;
+        max-width: 460px;
+      }
+      .auth-hero { text-align: center; align-items: center; }
+      .hero-subtext { max-width: 100%; }
+      .stat-row { justify-content: center; }
+      .auth-card { padding: 30px 22px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="ambient-glow ambient-glow--top"></div>
+  <div class="ambient-glow ambient-glow--bottom"></div>
+
+  <div class="auth-container">
+
+    <!-- Left Hero -->
+    <section class="auth-hero" aria-label="NYC LMS overview">
+      <a href="login.html" class="brand-badge">
+        <div class="brand-icon-3d">NYC</div>
+        <span class="brand-title">NYC LMS</span>
+      </a>
+
+      <div>
+        <h1 class="hero-heading">
+          Start learning<br>
+          <span>without limits.</span>
+        </h1>
+      </div>
+
+      <p class="hero-subtext">
+        Build real skills with focused courses, adaptive video lessons, and progress that stays with you.
+      </p>
+
+      <div class="stat-row">
+        <div class="stat-item">
+          <div class="stat-num">Learn</div>
+          <div class="stat-label">at your own pace</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-num">Track</div>
+          <div class="stat-label">your progress</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-num">Resume</div>
+          <div class="stat-label">where you left off</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Right Form -->
+    <main class="auth-card card-3d" aria-label="Create account form">
+      <div class="card-3d-content">
+        <span class="auth-kicker">Join the Platform</span>
+        <h2 class="auth-title">Create your account</h2>
+        <p class="auth-subtitle">Start learning today — it's completely free.</p>
+
+        <form id="registerForm" novalidate>
+          <div class="form-group">
+            <label for="name">Full name</label>
+            <input
+              id="name"
+              name="name"
+              type="text"
+              class="input-3d"
+              placeholder="Your full name"
+              autocomplete="name"
+              required
+            >
+          </div>
+
+          <div class="form-group">
+            <label for="email">Email address</label>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              class="input-3d"
+              placeholder="name@domain.com"
+              autocomplete="email"
+              required
+            >
+          </div>
+
+          <div class="form-group">
+            <label for="password">Password</label>
+            <div class="password-wrap">
+              <input
+                id="password"
+                name="password"
+                type="password"
+                class="input-3d"
+                placeholder="Min. 8 characters"
+                autocomplete="new-password"
+                minlength="8"
+                required
+              >
+              <button class="password-toggle" type="button" data-password-toggle="password" aria-label="Show password">Show</button>
+            </div>
+            <div class="strength-meter" data-strength="0">
+              <div class="strength-bar">
+                <div class="strength-seg"></div>
+                <div class="strength-seg"></div>
+                <div class="strength-seg"></div>
+                <div class="strength-seg"></div>
+              </div>
+              <span class="strength-label">Password strength</span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="confirmPassword">Confirm password</label>
+            <div class="password-wrap">
+              <input
+                id="confirmPassword"
+                name="confirmPassword"
+                type="password"
+                class="input-3d"
+                placeholder="Repeat your password"
+                autocomplete="new-password"
+                required
+              >
+              <button class="password-toggle" type="button" data-password-toggle="confirmPassword" aria-label="Show confirm password">Show</button>
+            </div>
+            <div class="match-indicator" id="matchIndicator"></div>
+          </div>
+
+          <button
+            type="submit"
+            class="btn-3d btn-3d--primary"
+            id="registerSubmit"
+            style="width:100%; margin-top:4px;"
+          >
+            <span class="btn__label">Create Account</span>
+            <span class="btn__spinner"></span>
+          </button>
+          <p id="message" role="alert" aria-live="polite"></p>
+        </form>
+
+        <p class="switch-auth">
+          Already have an account? <a href="login.html">Log in</a>
+        </p>
+      </div>
+    </main>
+  </div>
+
+  <script src="js/app-3d.js"></script>
+  <script>
+    (function () {
+      const form        = document.getElementById('registerForm');
+      const message     = document.getElementById('message');
+      const submitBtn   = document.getElementById('registerSubmit');
+      const passwordEl  = document.getElementById('password');
+      const confirmEl   = document.getElementById('confirmPassword');
+      const strengthEl  = document.querySelector('.strength-meter');
+      const strengthLbl = strengthEl.querySelector('.strength-label');
+      const matchEl     = document.getElementById('matchIndicator');
+
+      const labels = ['', 'Weak', 'Fair', 'Good', 'Strong'];
+
+      function measureStrength(pw) {
+        if (!pw) return 0;
+        let s = 0;
+        if (pw.length >= 8) s++;
+        if (/[a-z]/.test(pw) && /[A-Z]/.test(pw)) s++;
+        if (/\d/.test(pw)) s++;
+        if (/[^a-zA-Z\d]/.test(pw)) s++;
+        return s;
+      }
+
+      passwordEl.addEventListener('input', function () {
+        const s = measureStrength(passwordEl.value);
+        strengthEl.dataset.strength = s;
+        strengthLbl.textContent = labels[s] || 'Password strength';
+        checkMatch();
+      });
+
+      confirmEl.addEventListener('input', checkMatch);
+
+      function checkMatch() {
+        if (!confirmEl.value) { matchEl.textContent = ''; matchEl.className = 'match-indicator'; return; }
+        if (confirmEl.value === passwordEl.value) {
+          matchEl.textContent = '✓ Passwords match';
+          matchEl.className = 'match-indicator ok';
+        } else {
+          matchEl.textContent = '✗ Passwords do not match';
+          matchEl.className = 'match-indicator error';
+        }
+      }
+
+      form.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        message.textContent = '';
+
+        if (passwordEl.value !== confirmEl.value) {
+          message.textContent = 'Passwords do not match.';
+          return;
+        }
+        if (passwordEl.value.length < 8) {
+          message.textContent = 'Password must be at least 8 characters.';
+          return;
+        }
+
+        submitBtn.disabled = true;
+        submitBtn.classList.add('btn--loading');
+
+        try {
+          const res  = await fetch('/api/auth/register', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({
+              name:     document.getElementById('name').value,
+              email:    document.getElementById('email').value,
+              password: passwordEl.value,
+            }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.message || 'Registration failed');
+          localStorage.setItem('token', data.token);
+          localStorage.setItem('user',  JSON.stringify(data.user));
+          window.location.href = 'dashboard.html';
+        } catch (err) {
+          message.textContent = err.message || 'Unable to create account. Try again.';
+          submitBtn.disabled = false;
+          submitBtn.classList.remove('btn--loading');
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

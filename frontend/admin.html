@@ -3,21 +3,26 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#050403" />
   <title>NYC LMS — Admin Dashboard</title>
-  <meta name="description" content="NYC LMS admin dashboard for managing courses." />
+  <meta name="description" content="NYC LMS admin control center for managing courses and students." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/theme.css" />
   <link rel="stylesheet" href="css/admin.css" />
 </head>
 <body>
+  <div class="ambient-glow ambient-glow--top"></div>
+  <div class="ambient-glow ambient-glow--bottom"></div>
+
   <div class="app">
 
     <!-- ============ SIDEBAR ============ -->
     <aside class="sidebar" id="sidebar" aria-label="Main navigation">
       <div class="sidebar__brand">
         <div class="brand-mark" aria-hidden="true">
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M22 10L12 5 2 10l10 5 10-5z"/>
             <path d="M6 12v5c3 3 9 3 12 0v-5"/>
           </svg>
@@ -25,34 +30,30 @@
         <span class="brand-name">NYC LMS</span>
       </div>
 
-      <nav class="sidebar__nav">
-        <p class="nav-label">Overview</p>
-        <a href="#" class="nav-link active" aria-current="page">
-          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
-          <span>Dashboard</span>
+      <div class="sidebar__eyebrow">ADMIN WORKSPACE</div>
+      <nav class="sidebar__nav" aria-label="Admin sections">
+        <a href="#overview" class="nav-link active" aria-current="page" data-screen="overview">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+          <span>Overview</span>
         </a>
-        <a href="#courses" class="nav-link">
-          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+        <a href="#courses" class="nav-link" data-screen="courses">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
           <span>Courses</span>
         </a>
 
-        <p class="nav-label">Management</p>
-        <a href="#" class="nav-link nav-link--disabled" aria-disabled="true" title="Coming soon">
-          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+        <a href="#students" class="nav-link" data-screen="students">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
           <span>Students</span>
-          <span class="nav-badge">Soon</span>
         </a>
-        <a href="#" class="nav-link nav-link--disabled" aria-disabled="true" title="Coming soon">
-          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-6 4 3 5-8"/></svg>
+        <a href="#analytics" class="nav-link" data-screen="analytics">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 3v18h18"/><path d="M7 15l4-6 4 3 5-8"/></svg>
           <span>Analytics</span>
-          <span class="nav-badge">Soon</span>
         </a>
 
-        <p class="nav-label">System</p>
-        <a href="#" class="nav-link nav-link--disabled" aria-disabled="true" title="Coming soon">
-          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+        <div class="sidebar__divider"></div>
+        <a href="#settings" class="nav-link" data-screen="settings">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
           <span>Settings</span>
-          <span class="nav-badge">Soon</span>
         </a>
       </nav>
 
@@ -80,13 +81,23 @@
         </button>
 
         <div class="topbar__title">
-          <h1>Admin Dashboard</h1>
-          <p>Welcome back — here's what's happening in your academy.</p>
+          <h1>Admin workspace</h1>
+          <p>NYC LMS · Platform management</p>
+        </div>
+
+        <div class="search-box topbar__search" hidden>
+          <svg class="search-box__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+          <input type="search" id="courseSearch" class="input-3d" placeholder="Search courses…" aria-label="Search courses" autocomplete="off" />
+        </div>
+
+        <div class="server-status is-checking" id="serverStatus" role="status" aria-live="polite">
+          <span class="server-status__dot" aria-hidden="true"></span>
+          <span id="serverStatusText">Checking server</span>
         </div>
 
         <div class="topbar__actions">
-          <button class="btn btn--primary" id="btnOpenCreateModal">
-            <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          <button class="btn-3d btn-3d--primary" id="btnOpenCreateModal" hidden>
+            <svg class="btn-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
             Create Course
           </button>
 
@@ -97,11 +108,11 @@
                 <span class="profile__name">Admin</span>
                 <span class="profile__role">admin@nyclms.com</span>
               </div>
-              <svg class="profile__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
+              <svg class="profile__chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
             </button>
             <div class="profile__menu" id="profileMenu" role="menu" hidden>
-              <a href="#" role="menuitem" class="profile__menu-item">Profile settings</a>
-              <a href="#" role="menuitem" class="profile__menu-item">Sign out</a>
+              <a href="#settings" role="menuitem" class="profile__menu-item" data-screen="settings">Settings</a>
+              <a href="#" role="menuitem" class="profile__menu-item">Logout</a>
             </div>
           </div>
         </div>
@@ -110,72 +121,140 @@
       <!-- Content -->
       <main class="content" id="mainContent">
 
+        <section id="overview" class="admin-screen is-active" data-admin-screen="overview" aria-labelledby="overviewHeading">
+          <header class="screen-header">
+            <div>
+              <p class="screen-eyebrow">WORKSPACE</p>
+              <h1 id="overviewHeading">Overview</h1>
+              <p class="screen-description">A live view of your learning platform.</p>
+            </div>
+          </header>
+
         <!-- Stat cards -->
         <section class="stats" aria-label="Key statistics">
-          <article class="stat-card">
-            <div class="stat-card__icon stat-card__icon--indigo">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
-            </div>
-            <div>
-              <p class="stat-card__label">Total Courses</p>
-              <p class="stat-card__value" id="statTotalCourses" aria-live="polite">—</p>
-            </div>
-          </article>
-
-          <article class="stat-card">
-            <div class="stat-card__icon stat-card__icon--green">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg>
-            </div>
-            <div>
-              <p class="stat-card__label">Published Courses</p>
-              <p class="stat-card__value" id="statPublishedCourses" aria-live="polite">—</p>
+          <article class="stat-card card-3d" data-tilt data-light-follow>
+            <div class="card-3d-content stat-card__inner">
+              <div class="stat-card__icon stat-card__icon--indigo">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+              </div>
+              <div>
+                <p class="stat-card__label">Total Courses</p>
+                <p class="stat-card__value" id="statTotalCourses" data-counter aria-live="polite">—</p>
+                <p class="stat-card__detail">Draft and published</p>
+              </div>
             </div>
           </article>
 
-          <article class="stat-card">
-            <div class="stat-card__icon stat-card__icon--amber">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
-            </div>
-            <div>
-              <p class="stat-card__label">Total Students</p>
-              <p class="stat-card__value stat-card__value--placeholder">Coming soon</p>
+          <article class="stat-card card-3d" data-tilt data-light-follow>
+            <div class="card-3d-content stat-card__inner">
+              <div class="stat-card__icon stat-card__icon--green">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg>
+              </div>
+              <div>
+                <p class="stat-card__label">Published Courses</p>
+                <p class="stat-card__value" id="statPublishedCourses" data-counter aria-live="polite">—</p>
+                <p class="stat-card__detail">Visible in catalog</p>
+              </div>
             </div>
           </article>
 
-          <article class="stat-card">
-            <div class="stat-card__icon stat-card__icon--violet">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+          <article class="stat-card card-3d" data-tilt data-light-follow>
+            <div class="card-3d-content stat-card__inner">
+              <div class="stat-card__icon stat-card__icon--amber">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+              </div>
+              <div>
+                <p class="stat-card__label">Total Students</p>
+                <p class="stat-card__value" id="statTotalStudents" data-counter>—</p>
+                <p class="stat-card__detail">Registered learners</p>
+              </div>
             </div>
-            <div>
-              <p class="stat-card__label">Total Lessons</p>
-              <p class="stat-card__value stat-card__value--placeholder">Coming soon</p>
+          </article>
+
+          <article class="stat-card card-3d" data-tilt data-light-follow>
+            <div class="card-3d-content stat-card__inner">
+              <div class="stat-card__icon stat-card__icon--violet">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+              </div>
+              <div>
+                <p class="stat-card__label">Total Lessons</p>
+                <p class="stat-card__value" id="statTotalLessons" data-counter>—</p>
+                <p class="stat-card__detail">Across all modules</p>
+              </div>
             </div>
           </article>
         </section>
 
+          <div class="overview-columns">
+            <section class="panel card-3d overview-panel" aria-labelledby="recentCoursesHeading">
+              <div class="panel__header"><div><h2 id="recentCoursesHeading">Recent courses</h2><p class="panel__subtitle">Your latest catalog updates.</p></div><button type="button" class="text-action" data-navigate-screen="courses">View all courses <span aria-hidden="true">→</span></button></div>
+              <div id="overviewCourses" class="overview-list"><p class="overview-empty">Course data will appear here when loaded.</p></div>
+            </section>
+            <section class="panel card-3d overview-panel" aria-labelledby="recentStudentsHeading">
+              <div class="panel__header"><div><h2 id="recentStudentsHeading">Recent students</h2><p class="panel__subtitle">Latest learner accounts.</p></div><button type="button" class="text-action" data-navigate-screen="students">View students <span aria-hidden="true">→</span></button></div>
+              <div id="overviewStudents" class="overview-list"><p class="overview-empty">Student data will appear here when loaded.</p></div>
+            </section>
+          </div>
+
+          <section class="quick-actions" aria-label="Quick actions">
+            <span class="quick-actions__label">Quick actions</span>
+            <button type="button" class="btn-3d btn-3d--secondary" id="btnOverviewCreate">+ Create course</button>
+            <button type="button" class="text-action" data-navigate-screen="courses">Manage courses <span aria-hidden="true">→</span></button>
+            <button type="button" class="text-action" data-navigate-screen="students">View students <span aria-hidden="true">→</span></button>
+          </section>
+        </section>
+
+        <!-- Students section -->
+        <section class="panel card-3d admin-screen" id="students" data-admin-screen="students" aria-labelledby="studentsHeading" hidden>
+          <div class="screen-header"><div><p class="screen-eyebrow">PEOPLE</p><h1 id="studentsHeading">Students</h1><p class="screen-description">Manage learners and review their course activity.</p></div><div class="search-box"><svg class="search-box__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg><input type="search" id="studentSearch" class="input-3d" placeholder="Search students…" aria-label="Search students" autocomplete="off"></div></div>
+          <div id="studentsStatus" class="panel__subtitle" role="status">Loading students…</div>
+          <div class="table-wrap" id="studentsTableWrap" hidden><table class="course-table"><thead><tr><th>Student</th><th>Email</th><th>Enrolled Courses</th><th>Completed Lessons</th><th>Joined</th></tr></thead><tbody id="studentsTableBody"></tbody></table></div>
+        </section>
+
+        <!-- Analytics section -->
+        <section class="panel card-3d admin-screen" id="analytics" data-admin-screen="analytics" aria-labelledby="analyticsHeading" hidden>
+          <div class="screen-header"><div><p class="screen-eyebrow">INSIGHTS</p><h1 id="analyticsHeading">Analytics</h1><p class="screen-description">Live metrics from your LMS database.</p></div></div>
+          <div id="analyticsStatus" class="panel__subtitle" role="status">Loading analytics…</div>
+          <div class="admin-metrics" id="analyticsMetrics" hidden></div>
+        </section>
+
+        <!-- Settings section -->
+        <section class="panel card-3d admin-screen" id="settings" data-admin-screen="settings" aria-labelledby="settingsHeading" hidden>
+          <div class="screen-header"><div><p class="screen-eyebrow">PREFERENCES</p><h1 id="settingsHeading">Settings</h1><p class="screen-description">Manage your account security and workspace preferences.</p></div></div>
+          <div class="settings-profile"><div class="avatar" id="settingsAvatar">A</div><div><strong id="settingsName">Admin</strong><div id="settingsEmail" class="panel__subtitle">admin@nyclms.com</div><span class="settings-role badge-3d badge-3d--orange">Administrator</span></div></div>
+          <form id="passwordForm" class="settings-form">
+            <h3>Change password</h3>
+            <label for="currentPassword">Current password</label><div class="password-field"><input id="currentPassword" class="input-3d" type="password" autocomplete="current-password" required><button type="button" class="btn-3d btn-3d--secondary btn-sm" data-toggle-password="currentPassword">Show</button></div>
+            <label for="newPassword">New password</label><div class="password-field"><input id="newPassword" class="input-3d" type="password" minlength="8" maxlength="72" autocomplete="new-password" required><button type="button" class="btn-3d btn-3d--secondary btn-sm" data-toggle-password="newPassword">Show</button></div>
+            <p class="password-hint">Use at least 8 characters (maximum 72).</p>
+            <div class="password-strength" id="passwordStrength" data-strength="0" aria-live="polite"><span class="password-strength__track"><i></i></span><span class="password-strength__label">Password strength</span></div>
+            <label for="confirmPassword">Confirm new password</label><div class="password-field"><input id="confirmPassword" class="input-3d" type="password" minlength="8" maxlength="72" autocomplete="new-password" required><button type="button" class="btn-3d btn-3d--secondary btn-sm" data-toggle-password="confirmPassword">Show</button></div>
+            <p class="password-match" id="passwordMatch" aria-live="polite"></p>
+            <div id="passwordMessage" class="settings-alert" role="status" hidden></div>
+            <button class="btn-3d btn-3d--primary" id="savePassword" type="submit">Save password</button>
+          </form>
+          <section class="settings-preferences" aria-labelledby="preferencesTitle">
+            <div><h3 id="preferencesTitle">Preferences</h3><p>Reduce decorative motion on this dashboard.</p></div>
+            <label class="preference-toggle" for="reduceMotion"><span class="visually-hidden">Reduce decorative motion</span><input id="reduceMotion" type="checkbox"><span class="preference-toggle__track" aria-hidden="true"></span></label>
+          </section>
+        </section>
+
         <!-- Courses -->
-        <section class="panel" id="courses" aria-labelledby="coursesHeading">
+        <section class="panel card-3d admin-screen" id="courses" data-admin-screen="courses" aria-labelledby="coursesHeading" hidden>
           <div class="panel__header">
-            <div>
-              <h2 id="coursesHeading">Courses</h2>
-              <p class="panel__subtitle" id="coursesSubtitle">Manage the courses in your catalog.</p>
-            </div>
+            <div class="screen-header"><div><p class="screen-eyebrow">CATALOG</p><h1 id="coursesHeading" tabindex="-1">Courses</h1><p class="screen-description" id="coursesSubtitle">Manage your course catalog.</p></div>
             <div class="panel__tools">
-              <div class="search-box">
-                <svg class="search-box__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-                <input type="search" id="courseSearch" placeholder="Search courses…" aria-label="Search courses" autocomplete="off" />
-              </div>
-              <button class="btn btn--primary" id="btnOpenCreateModal2">
-                <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+              <button class="btn-3d btn-3d--primary" id="btnOpenCreateModal2">
+                <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
                 Create Course
               </button>
-            </div>
+            </div></div>
           </div>
 
           <!-- Loading state -->
           <div class="state state--loading" id="coursesLoading" role="status" aria-live="polite">
             <div class="spinner" aria-hidden="true"></div>
-            <p>Loading courses…</p>
+            <p>Loading catalog courses…</p>
           </div>
 
           <!-- Error state -->
@@ -185,7 +264,7 @@
             </div>
             <h3>Couldn't load courses</h3>
             <p id="coursesErrorMessage">The server could not be reached.</p>
-            <button class="btn btn--secondary" id="btnRetryLoad">Try again</button>
+            <button class="btn-3d btn-3d--secondary" id="btnRetryLoad">Try again</button>
           </div>
 
           <!-- Empty state -->
@@ -195,7 +274,7 @@
             </div>
             <h3>No courses yet</h3>
             <p>Create your first course to start building your catalog.</p>
-            <button class="btn btn--primary" id="btnEmptyCreate">Create Course</button>
+            <button class="btn-3d btn-3d--primary" id="btnEmptyCreate">Create Course</button>
           </div>
 
           <!-- Course table -->
@@ -205,18 +284,19 @@
                 <tr>
                   <th scope="col">Course</th>
                   <th scope="col">Status</th>
+                  <th scope="col">Lessons</th>
                   <th scope="col">ID</th>
                   <th scope="col">Created</th>
                   <th scope="col" class="col-actions"><span class="visually-hidden">Actions</span></th>
                 </tr>
               </thead>
-              <tbody id="coursesTableBody"><!-- rows injected by JS --></tbody>
+              <tbody id="coursesTableBody"></tbody>
             </table>
           </div>
         </section>
 
         <footer class="footer">
-          <p>NYC LMS Admin · Powered by your Node.js + Express + PostgreSQL backend</p>
+          <p>NYC LMS Admin · Platform management</p>
         </footer>
       </main>
     </div>
@@ -225,7 +305,7 @@
   <!-- ============ CREATE COURSE MODAL ============ -->
   <div class="modal" id="createModal" role="dialog" aria-modal="true" aria-labelledby="createModalTitle" hidden>
     <div class="modal__backdrop" data-close-modal></div>
-    <div class="modal__card">
+    <div class="modal__card card-3d">
       <div class="modal__header">
         <div>
           <h2 id="createModalTitle">Create a new course</h2>
@@ -239,34 +319,41 @@
       <form id="createCourseForm" novalidate>
         <div class="field">
           <label for="courseTitle">Course title <span class="req" aria-hidden="true">*</span></label>
-          <input type="text" id="courseTitle" name="title" placeholder="e.g. Introduction to Web Development" maxlength="200" required />
+          <input type="text" id="courseTitle" name="title" class="input-3d" placeholder="e.g. Advanced System Architecture" maxlength="200" required />
           <p class="field__error" id="titleError" hidden>Please enter a course title.</p>
         </div>
 
         <div class="field">
           <label for="courseDescription">Description</label>
-          <textarea id="courseDescription" name="description" rows="4" placeholder="What will students learn in this course?"></textarea>
+          <textarea id="courseDescription" name="description" class="input-3d" rows="4" placeholder="What will students learn in this course?"></textarea>
         </div>
 
-        <div class="field">
-          <label for="courseThumbnail">Thumbnail URL</label>
-          <input type="url" id="courseThumbnail" name="thumbnail" placeholder="https://example.com/image.jpg" />
-          <p class="field__hint">A direct link to an image (JPG, PNG, WebP).</p>
+        <div class="field thumbnail-field">
+          <span class="field-label">Course thumbnail</span>
+          <label class="upload-dropzone thumbnail-dropzone" id="thumbnailDropzone" for="courseThumbnailFile">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4m0 0L7 9m5-5 5 5"/><path d="M20 16.5v2A1.5 1.5 0 0118.5 20h-13A1.5 1.5 0 014 18.5v-2"/></svg>
+            <strong>Drop course artwork here</strong><span>or <b>browse files</b></span><small>PNG, JPG or WEBP · Up to 5 MB</small>
+            <input type="file" id="courseThumbnailFile" name="thumbnailFile" accept=".jpg,.jpeg,.png,.webp,.gif,image/jpeg,image/png,image/webp,image/gif" />
+          </label>
+          <p class="field__hint">Or use a direct image URL.</p>
+          <label for="courseThumbnail" style="margin-top:8px;">Direct image URL</label>
+          <input type="url" id="courseThumbnail" name="thumbnail" class="input-3d" placeholder="https://example.com/course-cover.jpg" />
+          <div class="thumbnail-preview" id="thumbnailPreview" hidden><img id="thumbnailPreviewImage" alt="Course thumbnail preview"><span id="thumbnailPreviewLabel">Preview</span></div>
         </div>
 
         <label class="checkbox-row" for="coursePublished">
           <input type="checkbox" id="coursePublished" name="published" />
           <span class="checkbox-row__text">
             <span class="checkbox-row__title">Publish immediately</span>
-            <span class="checkbox-row__desc">Published courses are visible to students. Leave unchecked to save as a draft.</span>
+            <span class="checkbox-row__desc">Published courses are visible in the student catalog. Leave unchecked for draft mode.</span>
           </span>
         </label>
 
         <div class="modal__error" id="formError" role="alert" hidden></div>
 
         <div class="modal__footer">
-          <button type="button" class="btn btn--ghost" data-close-modal id="btnCancelCreate">Cancel</button>
-          <button type="submit" class="btn btn--primary" id="btnSubmitCreate">
+          <button type="button" class="btn-3d btn-3d--secondary" data-close-modal id="btnCancelCreate">Cancel</button>
+          <button type="submit" class="btn-3d btn-3d--primary" id="btnSubmitCreate">
             <span class="btn__label">Create Course</span>
             <span class="btn__spinner" aria-hidden="true"></span>
           </button>
@@ -275,9 +362,68 @@
     </div>
   </div>
 
+  <!-- ============ COURSE CONTENT MODAL ============ -->
+  <div class="modal course-workspace" id="courseContentModal" role="dialog" aria-modal="true" aria-labelledby="courseContentTitle" hidden>
+    <div class="modal__backdrop" data-close-course-content></div>
+    <div class="modal__card course-content-modal card-3d">
+      <div class="modal__header">
+        <div>
+          <button type="button" class="workspace-back" data-close-course-content><span aria-hidden="true">←</span> Back to courses</button>
+          <div class="course-content-heading">
+            <div class="course-content-thumb" id="courseContentThumbnail"></div>
+            <div>
+              <div class="course-content-title-row">
+                <h2 id="courseContentTitle">Course content</h2>
+                <span class="badge badge--draft" id="courseContentPublished">Draft</span>
+              </div>
+              <p class="modal__subtitle">Build and organize this course curriculum.</p>
+            </div>
+          </div>
+        </div>
+        <button class="icon-btn" data-close-course-content aria-label="Close dialog">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <div class="field">
+        <label for="moduleSelect">Active Module</label>
+        <select id="moduleSelect" class="course-content-select input-3d"></select>
+      </div>
+      <form id="createModuleForm" class="course-content-form">
+        <div class="field">
+          <label for="newModuleTitle">Add a new module</label>
+          <div class="course-content-inline">
+            <input type="text" id="newModuleTitle" class="input-3d" maxlength="200" placeholder="Module title" required />
+            <button class="btn-3d btn-3d--secondary" type="submit" id="addModuleButton">Add module</button>
+          </div>
+        </div>
+      </form>
+      <form id="createLessonForm" class="course-content-form">
+        <div class="course-content-inline course-content-lesson-fields">
+          <div class="field">
+            <label for="newLessonTitle">Add a lesson to active module</label>
+            <input type="text" id="newLessonTitle" class="input-3d" maxlength="200" placeholder="Lesson title" required />
+          </div>
+          <div class="field">
+            <label for="newLessonType">Media type</label>
+            <select id="newLessonType" class="course-content-select input-3d">
+              <option value="video">Video</option>
+              <option value="audio">Audio</option>
+            </select>
+          </div>
+          <button class="btn-3d btn-3d--secondary" type="submit" id="addLessonButton">Add lesson</button>
+        </div>
+      </form>
+      <p class="field__hint">Lesson duration is detected automatically after media file upload.</p>
+      <div id="courseContentStatus" class="course-content-status" role="status" aria-live="polite"></div>
+      <div id="courseLessonsList" class="course-lessons-list"></div>
+    </div>
+  </div>
+
   <!-- Toast notifications -->
   <div class="toasts" id="toasts" aria-live="polite" aria-atomic="false"></div>
 
+  <script src="js/app-3d.js"></script>
   <script src="js/admin.js" defer></script>
 </body>
 </html>
