@@ -424,6 +424,7 @@
     </main>
   </div>
 
+  <script src="js/config.js"></script>
   <script src="js/app-3d.js"></script>
   <script>
     (function () {
@@ -485,7 +486,7 @@
         submitBtn.classList.add('btn--loading');
 
         try {
-          const res  = await fetch('/api/auth/register', {
+          const res  = await fetch(apiUrl('/api/auth/register'), {
             method:  'POST',
             headers: { 'Content-Type': 'application/json' },
             body:    JSON.stringify({

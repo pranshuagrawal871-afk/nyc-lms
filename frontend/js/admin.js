@@ -148,9 +148,9 @@ function formatFileSize(bytes) {
 function resolveThumbnailUrl(value) {
   if (typeof value !== 'string' || !value.trim()) return null;
   try {
-    const url = new URL(value.trim(), window.location.origin);
+    const url = new URL(value.trim(), API_BASE_URL);
     if (!['http:', 'https:'].includes(url.protocol)) return null;
-    if (url.origin === window.location.origin && !url.pathname.startsWith('/media/thumbnails/')) return null;
+    if (url.origin === API_BASE_URL && !url.pathname.startsWith('/media/thumbnails/')) return null;
     return url.href;
   } catch (_) { return null; }
 }
@@ -183,7 +183,7 @@ async function apiJson(url, options = {}) {
     const headers = new Headers(options.headers || {});
     const token = localStorage.getItem('token');
     if (token) headers.set('Authorization', `Bearer ${token}`);
-    response = await fetch(url, { ...options, headers });
+    response = await fetch(apiUrl(url), { ...options, headers });
   } catch (_) {
     throw new Error('Cannot reach the backend server. Make sure the Express server is running.');
   }
@@ -200,7 +200,7 @@ async function apiJson(url, options = {}) {
 function uploadWithProgress(url, formData, onProgress) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    xhr.open('POST', url);
+    xhr.open('POST', apiUrl(url));
     const token = localStorage.getItem('token');
     if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
     xhr.responseType = 'text';

@@ -1,4 +1,5 @@
 const express = require("express");
+const cors = require("cors");
 const path = require("path");
 
 const pool = require("./config/db");
@@ -13,6 +14,26 @@ const enrollmentRoutes = require("./routes/enrollmentRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 
 const app = express();
+
+const developmentOrigins = new Set([
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:5500",
+    "http://127.0.0.1:5500"
+]);
+const configuredOrigins = (process.env.FRONTEND_URL || "")
+    .split(",")
+    .map(origin => origin.trim())
+    .filter(Boolean);
+const allowedOrigins = new Set([...configuredOrigins, ...developmentOrigins]);
+
+app.use(cors({
+    origin(origin, callback) {
+        // Requests without an Origin header are typically direct server-to-server calls.
+        if (!origin || allowedOrigins.has(origin)) return callback(null, true);
+        return callback(new Error("Origin not allowed by CORS"));
+    }
+}));
 
 app.use(express.json());
 

@@ -153,7 +153,7 @@
     if (AUTH_TOKEN) headers.set("Authorization", "Bearer " + AUTH_TOKEN);
     let response;
     try {
-      response = await fetch(url, { ...options, headers });
+      response = await fetch(apiUrl(url), { ...options, headers });
     } catch (_) {
       throw new Error("Cannot reach the server. Check your connection and try again.");
     }
@@ -549,7 +549,7 @@
     try {
       const stream = await getJson("/api/stream/token/" + encodeURIComponent(lesson.id));
       if (String(currentLessonId) !== String(lesson.id)) return;
-      video.src = stream.url;
+      video.src = apiUrl(stream.url);
     } catch (error) {
       lessonStatusEl.textContent = error.message || "Unable to authorize media playback.";
       setMediaControlsEnabled(false);
@@ -932,7 +932,7 @@
     saveInFlight = true;
 
     try {
-      const response = await fetch("/api/progress", {
+      const response = await fetch(apiUrl("/api/progress"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -993,7 +993,7 @@
   // request finish after the page is gone).
   function flushProgress() {
     if (!AUTH_TOKEN || IS_ADMIN || !currentLessonId || !progressLoaded || !video.duration) return;
-    fetch("/api/progress", {
+    fetch(apiUrl("/api/progress"), {
       method: "POST",
       keepalive: true,
       headers: {

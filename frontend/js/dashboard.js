@@ -63,7 +63,7 @@
   async function getJson(url, options) {
     let response;
     try {
-      response = await fetch(url, options || {});
+      response = await fetch(apiUrl(url), options || {});
     } catch (_) {
       throw new Error('Cannot reach the server. Check your connection and try again.');
     }
@@ -118,9 +118,9 @@
   function resolveThumbnailUrl(value) {
     if (typeof value !== 'string' || !value.trim()) return null;
     try {
-      const url = new URL(value.trim(), window.location.origin);
+      const url = new URL(value.trim(), API_BASE_URL);
       if (url.protocol !== 'https:' && url.protocol !== 'http:') return null;
-      if (url.origin === window.location.origin && !url.pathname.startsWith('/media/thumbnails/')) return null;
+      if (url.origin === API_BASE_URL && !url.pathname.startsWith('/media/thumbnails/')) return null;
       return url.href;
     } catch (_) { return null; }
   }
