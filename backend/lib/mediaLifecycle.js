@@ -31,6 +31,15 @@ function localMediaPath(filePath) {
     return resolved;
 }
 
+function localThumbnailPath(filePath) {
+    const base = path.basename(String(filePath || ""));
+    if (!base || base === "." || base === "..") return null;
+    const directory = path.resolve(UPLOAD_ROOT, "thumbnails");
+    const resolved = path.resolve(directory, base);
+    if (!resolved.startsWith(directory + path.sep)) return null;
+    return resolved;
+}
+
 async function mediaExists(filePath) {
     if (!filePath) return false;
     if (!String(filePath).startsWith("courses/")) {
@@ -71,7 +80,7 @@ async function cleanupRetiredMedia(limit = 20) {
     );
     for (const row of due.rows) {
         try {
-            if (row.bucket === "course-thumbnails") {
+            if (row.bucket === "course-thumbnails" || row.bucket === "local-thumbnails") {
                 const referenced = await pool.query(
                     "SELECT 1 FROM courses WHERE thumbnail LIKE '%' || $1 || '%' ESCAPE '\\' LIMIT 1",
                     [row.object_path.replace(/[\\%_]/g, "\\$&")]
@@ -80,6 +89,15 @@ async function cleanupRetiredMedia(limit = 20) {
                     await pool.query("UPDATE retired_media SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1", [row.id]);
                     continue;
                 }
+            }
+            if (row.bucket === "local-thumbnails") {
+                const local = localThumbnailPath(row.object_path);
+                if (local) {
+                    try { await fs.promises.unlink(local); }
+                    catch (error) { if (error.code !== "ENOENT") throw error; }
+                }
+                await pool.query("UPDATE retired_media SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1", [row.id]);
+                continue;
             }
             if (row.bucket === "course-videos" || row.bucket === "local-uploads") {
                 const stillUsed = await pool.query("SELECT 1 FROM lessons WHERE file_path = $1 LIMIT 1", [row.object_path]);

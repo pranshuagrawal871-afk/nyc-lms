@@ -153,7 +153,7 @@
 .video-ambient-backlight {
   position: absolute;
   inset: -20%;
-  background: radial-gradient(circle at 50% 50%, rgba(255,107,43,0.16), transparent 65%);
+  background: transparent;
   filter: blur(60px);
   opacity: 0.6;
   pointer-events: none;
@@ -183,19 +183,17 @@
 }
 
 .big-play-circle {
-  width: 72px;
-  height: 72px;
+  width: 68px;
+  height: 68px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #ff7a3d, #b83007);
-  box-shadow: 0 0 0 12px rgba(255,107,43,0.12), 0 0 40px rgba(255,107,43,0.45);
+  background: var(--primary);
+  box-shadow: none;
   display: grid;
   place-items: center;
-  transition: transform 0.2s var(--ease-spring, cubic-bezier(0.34,1.56,0.64,1)), box-shadow 0.2s ease;
 }
 
 .big-play:hover .big-play-circle {
-  transform: scale(1.1);
-  box-shadow: 0 0 0 16px rgba(255,107,43,0.15), 0 0 60px rgba(255,107,43,0.6);
+  background: var(--primary-hover);
 }
 
 /* ============================================================

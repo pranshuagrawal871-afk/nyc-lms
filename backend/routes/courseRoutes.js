@@ -5,6 +5,8 @@ const requireAdmin = authenticateToken.requireAdmin;
 const { parseTitle, respondWithDbError } = require("../lib/validation");
 const { authorizeCourseRead } = require("../lib/entitlement");
 const { courseReadiness } = require("../lib/publishReadiness");
+const { retireObject } = require("../lib/mediaLifecycle");
+const { parsePositiveId, thumbnailReference, removeContent, confirmProblem } = require("../lib/contentRemoval");
 
 const router = express.Router();
 const courseListSql = `SELECT c.*,
@@ -132,24 +134,69 @@ router.patch("/:courseId", authenticateToken, requireAdmin, async (req, res) => 
     const parsedTitle = title === undefined ? null : parseTitle(title, "Course title");
     if (parsedTitle && parsedTitle.error) return res.status(400).json({ message: parsedTitle.error });
     if (published !== undefined && typeof published !== "boolean") return res.status(400).json({ message: "Published must be true or false" });
+    if (description !== undefined && description !== null && typeof description !== "string") {
+        return res.status(400).json({ message: "Course description must be a string" });
+    }
+    if (typeof description === "string" && description.length > 8000) {
+        return res.status(400).json({ message: "Course description must be at most 8000 characters" });
+    }
     if (!validThumbnail(thumbnail)) return res.status(400).json({ message: "Thumbnail must be an HTTP(S) image URL or an uploaded thumbnail" });
+    const client = await pool.connect();
+    let previousThumbnail = null;
+    let course;
     try {
         if (published === true) {
             const readiness = await courseReadiness(id);
             if (!readiness.ok) return res.status(readiness.status).json({ message: readiness.message });
         }
-        const result = await pool.query(
+        await client.query("BEGIN");
+        const existing = await client.query("SELECT id, thumbnail FROM courses WHERE id = $1 FOR UPDATE", [id]);
+        if (!existing.rows.length) {
+            await client.query("ROLLBACK");
+            return res.status(404).json({ message: "Course not found" });
+        }
+        previousThumbnail = existing.rows[0].thumbnail;
+        const result = await client.query(
             `UPDATE courses SET title = COALESCE($1, title), description = COALESCE($2, description),
              thumbnail = COALESCE($3, thumbnail), published = COALESCE($4, published)
              WHERE id = $5 RETURNING *`,
             [parsedTitle ? parsedTitle.value : null, description === undefined ? null : description,
              thumbnail === undefined ? null : thumbnail, published === undefined ? null : published, id]
         );
-        if (!result.rows.length) return res.status(404).json({ message: "Course not found" });
-        return res.json({ course: result.rows[0] });
+        course = result.rows[0];
+        await client.query("COMMIT");
     } catch (error) {
+        try { await client.query("ROLLBACK"); } catch (_) { /* report the original error */ }
         if (error && error.status === 503) return res.status(503).json({ message: "Could not verify lesson media" });
         return respondWithDbError(res, error, "Could not update course");
+    } finally {
+        client.release();
+    }
+    if (thumbnail !== undefined && previousThumbnail && previousThumbnail !== course.thumbnail) {
+        const retired = thumbnailReference(previousThumbnail);
+        if (retired) {
+            try {
+                await retireObject(retired.bucket, retired.objectPath);
+            } catch (error) {
+                console.error("Could not schedule removal of replaced thumbnail:", error.message);
+            }
+        }
+    }
+    return res.json({ course });
+});
+
+router.delete("/:courseId", authenticateToken, requireAdmin, async (req, res) => {
+    const id = parsePositiveId(req.params.courseId);
+    if (!id) return res.status(400).json({ message: "A valid course ID is required" });
+    const problem = confirmProblem(req.body);
+    if (problem) return res.status(400).json({ message: problem });
+    try {
+        const outcome = await removeContent("course", id);
+        if (!outcome.found) return res.status(404).json({ message: "Course not found" });
+        return res.json({ message: "Course deleted" });
+    } catch (error) {
+        if (error && error.status === 400) return res.status(400).json({ message: error.message });
+        return respondWithDbError(res, error, "Could not delete course");
     }
 });
 

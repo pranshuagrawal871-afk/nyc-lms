@@ -5,6 +5,7 @@ const requireAdmin = authenticateToken.requireAdmin;
 const requireCourseAccess = require("../middleware/courseAccess");
 const { parseTitle, respondWithDbError } = require("../lib/validation");
 const { returnPublishedCourseToDraft } = require("../lib/publishReadiness");
+const { parsePositiveId, removeContent, confirmProblem } = require("../lib/contentRemoval");
 
 const router = express.Router();
 
@@ -48,6 +49,26 @@ router.patch("/:moduleId", authenticateToken, requireAdmin, async (req, res) => 
         return res.json({ module: result.rows[0] });
     } catch (error) {
         return respondWithDbError(res, error, "Could not update module");
+    }
+});
+
+router.delete("/:moduleId", authenticateToken, requireAdmin, async (req, res) => {
+    const id = parsePositiveId(req.params.moduleId);
+    if (!id) return res.status(400).json({ message: "A valid module ID is required" });
+    const problem = confirmProblem(req.body);
+    if (problem) return res.status(400).json({ message: problem });
+    try {
+        const outcome = await removeContent("module", id);
+        if (!outcome.found) return res.status(404).json({ message: "Module not found" });
+        return res.json({
+            message: outcome.course_unpublished
+                ? "Module deleted. The course was returned to draft because it is no longer ready to publish."
+                : "Module deleted",
+            course_unpublished: outcome.course_unpublished
+        });
+    } catch (error) {
+        if (error && error.status === 400) return res.status(400).json({ message: error.message });
+        return respondWithDbError(res, error, "Could not delete module");
     }
 });
 

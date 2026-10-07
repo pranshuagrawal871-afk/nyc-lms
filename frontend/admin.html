@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#050403" />
+  <meta name="theme-color" content="#F8FAFC" />
   <title>NYC LMS — Admin Dashboard</title>
   <meta name="description" content="NYC LMS admin control center for managing courses and students." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -11,6 +11,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/theme.css" />
   <link rel="stylesheet" href="css/admin.css" />
+  <link rel="stylesheet" href="css/product.css" />
 </head>
 <body>
   <div class="ambient-glow ambient-glow--top"></div>
@@ -34,7 +35,7 @@
       <nav class="sidebar__nav" aria-label="Admin sections">
         <a href="#overview" class="nav-link active" aria-current="page" data-screen="overview">
           <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
-          <span>Overview</span>
+          <span>Dashboard</span>
         </a>
         <a href="#courses" class="nav-link" data-screen="courses">
           <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
@@ -96,6 +97,7 @@
         </div>
 
         <div class="topbar__actions">
+          <button class="btn-3d btn-3d--secondary" type="button" data-confirm-logout>Log out</button>
           <button class="btn-3d btn-3d--primary" id="btnOpenCreateModal" hidden>
             <svg class="btn-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
             Create Course
@@ -112,7 +114,7 @@
             </button>
             <div class="profile__menu" id="profileMenu" role="menu" hidden>
               <a href="#settings" role="menuitem" class="profile__menu-item" data-screen="settings">Settings</a>
-              <a href="#" role="menuitem" class="profile__menu-item">Logout</a>
+              <a href="#" role="menuitem" class="profile__menu-item" data-confirm-logout>Logout</a>
             </div>
           </div>
         </div>
@@ -125,7 +127,7 @@
           <header class="screen-header">
             <div>
               <p class="screen-eyebrow">WORKSPACE</p>
-              <h1 id="overviewHeading">Overview</h1>
+              <h1 id="overviewHeading">Dashboard</h1>
               <p class="screen-description">A live view of your learning platform.</p>
             </div>
           </header>
@@ -378,6 +380,10 @@
                 <span class="badge badge--draft" id="courseContentPublished">Draft</span>
               </div>
               <p class="modal__subtitle">Build and organize this course curriculum.</p>
+              <div class="course-content-actions">
+                <button type="button" class="btn btn--secondary btn--sm" id="editCourseButton">Edit</button>
+                <button type="button" class="btn btn--secondary btn--sm btn--danger" id="deleteCourseButton">Delete</button>
+              </div>
             </div>
           </div>
         </div>
@@ -389,6 +395,7 @@
       <div class="field">
         <label for="moduleSelect">Active Module</label>
         <select id="moduleSelect" class="course-content-select input-3d"></select>
+        <div id="moduleList" class="module-list"></div>
       </div>
       <form id="createModuleForm" class="course-content-form">
         <div class="field">
@@ -421,11 +428,91 @@
     </div>
   </div>
 
+  <div class="modal modal--stacked" id="editCourseModal" role="dialog" aria-modal="true" aria-labelledby="editCourseTitle" hidden>
+    <div class="modal__backdrop" data-close-course-edit></div>
+    <form class="modal__card card-3d" id="editCourseForm">
+      <div class="modal__header">
+        <div>
+          <h2 id="editCourseTitle">Edit course</h2>
+          <p class="modal__subtitle">Update the title, description, thumbnail, or publication status.</p>
+        </div>
+        <button class="icon-btn" type="button" data-close-course-edit aria-label="Close dialog">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="field">
+        <label for="editCourseName">Title</label>
+        <input type="text" id="editCourseName" class="input-3d" maxlength="200" required />
+      </div>
+      <div class="field">
+        <label for="editCourseDescription">Description</label>
+        <textarea id="editCourseDescription" class="input-3d" rows="4" maxlength="8000"></textarea>
+      </div>
+      <div class="field">
+        <label for="editCourseThumbnailFile">Replace thumbnail</label>
+        <input type="file" id="editCourseThumbnailFile" accept=".jpg,.jpeg,.png,.webp,.gif,image/jpeg,image/png,image/webp,image/gif" />
+      </div>
+      <div class="field">
+        <label for="editCourseThumbnail">Thumbnail URL</label>
+        <input type="url" id="editCourseThumbnail" class="input-3d" placeholder="https://example.com/course-cover.jpg" />
+      </div>
+      <label class="checkbox-row" for="editCoursePublished">
+        <input type="checkbox" id="editCoursePublished" />
+        <span class="checkbox-row__text">
+          <span class="checkbox-row__title">Published</span>
+          <span class="checkbox-row__desc">Uncheck to return this course to draft. Publishing still requires a complete curriculum.</span>
+        </span>
+      </label>
+      <div class="modal__error" id="editCourseError" role="alert" hidden></div>
+      <div class="modal__footer">
+        <button type="button" class="btn-3d btn-3d--secondary" data-close-course-edit>Cancel</button>
+        <button type="submit" class="btn-3d btn-3d--primary" id="editCourseSave">Save changes</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="modal modal--stacked" id="renameModal" role="dialog" aria-modal="true" aria-labelledby="renameTitle" hidden>
+    <div class="modal__backdrop" data-close-rename></div>
+    <form class="modal__card card-3d" id="renameForm">
+      <div class="modal__header">
+        <div>
+          <h2 id="renameTitle">Edit</h2>
+          <p class="modal__subtitle" id="renameSubtitle">Update the title.</p>
+        </div>
+        <button class="icon-btn" type="button" data-close-rename aria-label="Close dialog">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="field">
+        <label for="renameInput" id="renameLabel">Title</label>
+        <input type="text" id="renameInput" class="input-3d" maxlength="200" required />
+      </div>
+      <div class="modal__error" id="renameError" role="alert" hidden></div>
+      <div class="modal__footer">
+        <button type="button" class="btn-3d btn-3d--secondary" data-close-rename>Cancel</button>
+        <button type="submit" class="btn-3d btn-3d--primary" id="renameSave">Save</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="logout-modal admin-confirm" id="deleteModal" hidden>
+    <div class="logout-modal__backdrop" data-close-delete></div>
+    <div class="logout-modal__dialog" id="deleteDialog" role="dialog" aria-modal="true" aria-labelledby="deleteTitle" aria-describedby="deleteText" tabindex="-1">
+      <h2 id="deleteTitle">Delete Lesson?</h2>
+      <p id="deleteText">This will permanently delete the lesson and its associated progress data.</p>
+      <div class="logout-modal__actions">
+        <button type="button" class="btn-3d btn-3d--secondary" id="deleteCancel" data-close-delete>Cancel</button>
+        <button type="button" class="btn-3d btn-3d--danger" id="deleteConfirm">Delete Lesson</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast notifications -->
   <div class="toasts" id="toasts" aria-live="polite" aria-atomic="false"></div>
 
   <script src="js/config.js"></script>
   <script src="js/session.js"></script>
+  <script src="js/ui.js"></script>
   <script src="js/app-3d.js"></script>
   <script src="js/admin.js" defer></script>
 </body>

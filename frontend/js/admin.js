@@ -48,6 +48,8 @@ let modulesRequestId = 0;   // ignores stale module responses
 let lessonsAbort = null;
 let activeUploads = 0;      // warns before leaving mid-upload
 let thumbnailObjectUrl = null;
+let pendingDelete = null;
+let renameTarget = null;
 
 /* ------------------------------------------------------------
  * Element references
@@ -111,6 +113,32 @@ const el = {
   addLessonButton: document.getElementById('addLessonButton'),
   courseContentStatus: document.getElementById('courseContentStatus'),
   courseLessonsList: document.getElementById('courseLessonsList'),
+  editCourseButton: document.getElementById('editCourseButton'),
+  deleteCourseButton: document.getElementById('deleteCourseButton'),
+  moduleList: document.getElementById('moduleList'),
+  editCourseModal: document.getElementById('editCourseModal'),
+  editCourseForm: document.getElementById('editCourseForm'),
+  editCourseName: document.getElementById('editCourseName'),
+  editCourseDescription: document.getElementById('editCourseDescription'),
+  editCourseThumbnailFile: document.getElementById('editCourseThumbnailFile'),
+  editCourseThumbnail: document.getElementById('editCourseThumbnail'),
+  editCoursePublished: document.getElementById('editCoursePublished'),
+  editCourseError: document.getElementById('editCourseError'),
+  editCourseSave: document.getElementById('editCourseSave'),
+  renameModal: document.getElementById('renameModal'),
+  renameForm: document.getElementById('renameForm'),
+  renameTitle: document.getElementById('renameTitle'),
+  renameSubtitle: document.getElementById('renameSubtitle'),
+  renameLabel: document.getElementById('renameLabel'),
+  renameInput: document.getElementById('renameInput'),
+  renameError: document.getElementById('renameError'),
+  renameSave: document.getElementById('renameSave'),
+  deleteModal: document.getElementById('deleteModal'),
+  deleteDialog: document.getElementById('deleteDialog'),
+  deleteTitle: document.getElementById('deleteTitle'),
+  deleteText: document.getElementById('deleteText'),
+  deleteCancel: document.getElementById('deleteCancel'),
+  deleteConfirm: document.getElementById('deleteConfirm'),
 
   // toasts
   toasts: document.getElementById('toasts'),
@@ -266,7 +294,7 @@ function countPublished(courses) {
 
 /** Keep the page from scrolling behind an open modal. */
 function syncBodyScroll() {
-  const anyOpen = !el.modal.hidden || !el.courseContentModal.hidden;
+  const anyOpen = !el.modal.hidden || !el.courseContentModal.hidden || !el.editCourseModal.hidden || !el.renameModal.hidden || !el.deleteModal.hidden;
   document.body.style.overflow = anyOpen ? 'hidden' : '';
 }
 
@@ -292,7 +320,10 @@ function trapFocus(event, container) {
 }
 
 function handleModalKeydown(event) { trapFocus(event, el.modal); }
-function handleContentKeydown(event) { trapFocus(event, el.courseContentModal); }
+function handleContentKeydown(event) {
+  if (!el.deleteModal.hidden || !el.renameModal.hidden || !el.editCourseModal.hidden) return;
+  trapFocus(event, el.courseContentModal);
+}
 
 /* ============================================================
  * Toast notifications
@@ -418,8 +449,11 @@ function renderOverviewCourses() {
     const title = document.createElement('strong'); title.textContent = course.title || 'Untitled course';
     const meta = document.createElement('span'); meta.textContent = `${course.published === true || course.published === 't' ? 'Published' : 'Draft'} · ${Number(course.lesson_count) || 0} lessons`;
     details.append(title, meta);
+    const actions = document.createElement('div');
+    actions.className = 'module-row__actions';
     const manage = document.createElement('button'); manage.type = 'button'; manage.className = 'icon-btn overview-manage'; manage.textContent = 'Manage'; manage.setAttribute('aria-label', `Manage ${course.title || 'course'}`); manage.addEventListener('click', () => { showAdminScreen('courses'); document.getElementById('coursesHeading').focus(); openCourseContent(course); });
-    row.append(details, manage); list.appendChild(row);
+    actions.append(manage, buildEditButton(course.title, () => openCourseEditor(course)), buildDeleteButton(course.title, () => confirmDeleteCourse(course)));
+    row.append(details, actions); list.appendChild(row);
   });
 }
 
@@ -602,6 +636,8 @@ function renderCourses() {
     actionsWrap.appendChild(viewBtn);
     actionsWrap.appendChild(manageBtn);
     actionsWrap.appendChild(publishBtn);
+    actionsWrap.appendChild(buildEditButton(courseName, () => openCourseEditor(course)));
+    actionsWrap.appendChild(buildDeleteButton(courseName, () => confirmDeleteCourse(course)));
     tdActions.appendChild(actionsWrap);
 
     tr.append(tdCourse, tdStatus, tdLessons, tdId, tdDate, tdActions);
@@ -723,14 +759,33 @@ async function handleCreateSubmit(event) {
  * Course content modal (modules, lessons, media upload)
  * ============================================================ */
 
-function openCourseContent(course) {
-  lastFocusedElement = document.activeElement;
-  state.activeCourse = course;
-  state.activeModules = [];
-  state.activeLessons = [];
-  lessonsRequestId += 1;
-  modulesRequestId += 1;
+function buildEditButton(name, onClick) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'btn btn--secondary btn--sm';
+  button.textContent = 'Edit';
+  button.setAttribute('aria-label', `Edit ${name || 'item'}`);
+  button.addEventListener('click', (event) => {
+    event.stopPropagation();
+    onClick();
+  });
+  return button;
+}
 
+function buildDeleteButton(name, onClick) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'btn btn--secondary btn--sm btn--danger';
+  button.textContent = 'Delete';
+  button.setAttribute('aria-label', `Delete ${name || 'item'}`);
+  button.addEventListener('click', (event) => {
+    event.stopPropagation();
+    onClick();
+  });
+  return button;
+}
+
+function paintCourseHeader(course) {
   el.courseContentTitle.textContent = course.title || 'Course content';
   el.courseContentThumbnail.textContent = '';
   const courseImageUrl = resolveThumbnailUrl(course.thumbnail);
@@ -743,8 +798,271 @@ function openCourseContent(course) {
   const published = course.published === true || course.published === 't';
   el.courseContentPublished.textContent = published ? 'Published' : 'Draft';
   el.courseContentPublished.className = `badge ${published ? 'badge--published' : 'badge--draft'}`;
+}
+
+function refreshOpenCourse(courseId) {
+  if (!state.activeCourse || String(state.activeCourse.id) !== String(courseId)) return;
+  const fresh = state.courses.find((item) => String(item.id) === String(courseId));
+  if (!fresh) {
+    closeCourseContent();
+    return;
+  }
+  state.activeCourse = fresh;
+  paintCourseHeader(fresh);
+}
+
+function markOpenCourseDraft(result) {
+  if (!result || !result.course_unpublished || !state.activeCourse) return;
+  state.activeCourse.published = false;
+  el.courseContentPublished.textContent = 'Draft';
+  el.courseContentPublished.className = 'badge badge--draft';
+  loadCourses().then(() => refreshOpenCourse(state.activeCourse && state.activeCourse.id));
+}
+
+function openDeleteModal(copy, action) {
+  pendingDelete = action;
+  el.deleteTitle.textContent = copy.title;
+  el.deleteText.textContent = copy.body;
+  el.deleteConfirm.textContent = copy.confirmLabel;
+  el.deleteModal.hidden = false;
+  syncBodyScroll();
+  window.setTimeout(() => el.deleteDialog.focus(), 30);
+}
+
+function closeDeleteModal() {
+  if (el.deleteModal.hidden) return;
+  el.deleteModal.hidden = true;
+  pendingDelete = null;
+  syncBodyScroll();
+}
+
+async function acceptDelete() {
+  const action = pendingDelete;
+  closeDeleteModal();
+  if (!action) return;
+  try {
+    await action();
+  } catch (error) {
+    showToast(error.message || 'Could not delete this record.', 'error');
+  }
+}
+
+function confirmDeleteCourse(course) {
+  openDeleteModal({
+    title: 'Delete Course?',
+    body: 'This will permanently delete the course, its modules, lessons, enrollments, progress, and media.',
+    confirmLabel: 'Delete Course',
+  }, () => deleteCourse(course));
+}
+
+function confirmDeleteModule(module) {
+  openDeleteModal({
+    title: 'Delete Module?',
+    body: 'This will permanently delete the module, its lessons, and their progress data.',
+    confirmLabel: 'Delete Module',
+  }, () => deleteModule(module));
+}
+
+function confirmDeleteLesson(lesson, courseId, moduleId) {
+  openDeleteModal({
+    title: 'Delete Lesson?',
+    body: 'This will permanently delete the lesson and its associated progress data.',
+    confirmLabel: 'Delete Lesson',
+  }, () => deleteLesson(lesson, courseId, moduleId));
+}
+
+async function deleteCourse(course) {
+  await apiJson(`${API.courses}/${encodeURIComponent(course.id)}`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ confirm: true }),
+  });
+  showToast(`Course "${course.title || 'Untitled course'}" deleted.`);
+  if (state.activeCourse && String(state.activeCourse.id) === String(course.id)) closeCourseContent();
+  await loadCourses();
+}
+
+async function deleteModule(module) {
+  const course = state.activeCourse;
+  if (!course) return;
+  const result = await apiJson(`${API.modules}/${encodeURIComponent(module.id)}`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ confirm: true }),
+  });
+  showToast(result.course_unpublished ? result.message : `Module "${module.title}" deleted.`);
+  markOpenCourseDraft(result);
+  await loadCourseModules();
+}
+
+async function deleteLesson(lesson, courseId, moduleId) {
+  const result = await apiJson(`${API.lessons}/${encodeURIComponent(lesson.id)}`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ confirm: true }),
+  });
+  showToast(result.course_unpublished ? result.message : `Lesson "${lesson.title}" deleted.`);
+  markOpenCourseDraft(result);
+  await loadModuleLessons(courseId, moduleId);
+}
+
+function openCourseEditor(course) {
+  state.editingCourse = course;
+  el.editCourseName.value = course.title || '';
+  el.editCourseDescription.value = course.description || '';
+  el.editCourseThumbnail.value = course.thumbnail && /^https?:\/\//i.test(course.thumbnail) ? course.thumbnail : '';
+  el.editCourseThumbnailFile.value = '';
+  el.editCoursePublished.checked = course.published === true || course.published === 't';
+  el.editCourseError.hidden = true;
+  el.editCourseError.textContent = '';
+  el.editCourseModal.hidden = false;
+  syncBodyScroll();
+  window.setTimeout(() => el.editCourseName.focus(), 30);
+}
+
+function closeCourseEditor() {
+  if (el.editCourseModal.hidden) return;
+  el.editCourseModal.hidden = true;
+  state.editingCourse = null;
+  syncBodyScroll();
+}
+
+async function saveCourseEdit(event) {
+  event.preventDefault();
+  const course = state.editingCourse;
+  if (!course) return;
+  const title = el.editCourseName.value.trim();
+  if (!title) {
+    el.editCourseError.textContent = 'Course title is required.';
+    el.editCourseError.hidden = false;
+    el.editCourseName.focus();
+    return;
+  }
+  const body = {
+    title,
+    description: el.editCourseDescription.value.trim(),
+    published: el.editCoursePublished.checked,
+  };
+  el.editCourseSave.disabled = true;
+  el.editCourseError.hidden = true;
+  try {
+    const selectedFile = el.editCourseThumbnailFile.files && el.editCourseThumbnailFile.files[0];
+    const typedUrl = el.editCourseThumbnail.value.trim();
+    const visibleOriginal = course.thumbnail && /^https?:\/\//i.test(course.thumbnail) ? course.thumbnail : '';
+    if (selectedFile) {
+      const formData = new FormData();
+      formData.append('thumbnail', selectedFile);
+      const upload = await apiJson(`${API.upload}/thumbnail`, { method: 'POST', body: formData });
+      body.thumbnail = upload.thumbnailUrl;
+    } else if (typedUrl !== visibleOriginal) {
+      body.thumbnail = typedUrl;
+    }
+    const result = await apiJson(`${API.courses}/${encodeURIComponent(course.id)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    closeCourseEditor();
+    showToast(`Course "${result.course.title}" updated.`);
+    await loadCourses();
+    refreshOpenCourse(result.course.id);
+  } catch (error) {
+    el.editCourseError.textContent = error.message;
+    el.editCourseError.hidden = false;
+    showToast(error.message, 'error');
+  } finally {
+    el.editCourseSave.disabled = false;
+  }
+}
+
+function openRename(kind, record) {
+  renameTarget = { kind, record };
+  el.renameTitle.textContent = kind === 'module' ? 'Edit module' : 'Edit lesson';
+  el.renameSubtitle.textContent = kind === 'module' ? 'Update the module title.' : 'Update the lesson title.';
+  el.renameLabel.textContent = kind === 'module' ? 'Module title' : 'Lesson title';
+  el.renameInput.value = record.title || '';
+  el.renameError.hidden = true;
+  el.renameError.textContent = '';
+  el.renameModal.hidden = false;
+  syncBodyScroll();
+  window.setTimeout(() => el.renameInput.focus(), 30);
+}
+
+function closeRename() {
+  if (el.renameModal.hidden) return;
+  el.renameModal.hidden = true;
+  renameTarget = null;
+  syncBodyScroll();
+}
+
+async function saveRename(event) {
+  event.preventDefault();
+  const target = renameTarget;
+  if (!target) return;
+  const title = el.renameInput.value.trim();
+  if (!title) {
+    el.renameError.textContent = 'A title is required.';
+    el.renameError.hidden = false;
+    el.renameInput.focus();
+    return;
+  }
+  const path = target.kind === 'module'
+    ? `${API.modules}/${encodeURIComponent(target.record.id)}`
+    : `${API.lessons}/${encodeURIComponent(target.record.id)}`;
+  el.renameSave.disabled = true;
+  try {
+    await apiJson(path, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title }),
+    });
+    const kindLabel = target.kind === 'module' ? 'Module' : 'Lesson';
+    closeRename();
+    showToast(`${kindLabel} title updated.`);
+    if (target.kind === 'module') await loadCourseModules(target.record.id);
+    else await loadModuleLessons(state.activeCourse && state.activeCourse.id, el.moduleSelect.value);
+  } catch (error) {
+    el.renameError.textContent = error.message;
+    el.renameError.hidden = false;
+    showToast(error.message, 'error');
+  } finally {
+    el.renameSave.disabled = false;
+  }
+}
+
+function renderModuleList() {
+  el.moduleList.textContent = '';
+  if (!state.activeModules.length) return;
+  state.activeModules.forEach((module) => {
+    const row = document.createElement('div');
+    row.className = 'module-row';
+    if (String(module.id) === String(el.moduleSelect.value)) row.classList.add('is-active');
+    const title = document.createElement('span');
+    title.className = 'module-row__title';
+    title.textContent = module.title || 'Untitled module';
+    const actions = document.createElement('div');
+    actions.className = 'module-row__actions';
+    actions.append(
+      buildEditButton(module.title, () => openRename('module', module)),
+      buildDeleteButton(module.title, () => confirmDeleteModule(module))
+    );
+    row.append(title, actions);
+    el.moduleList.appendChild(row);
+  });
+}
+
+function openCourseContent(course) {
+  lastFocusedElement = document.activeElement;
+  state.activeCourse = course;
+  state.activeModules = [];
+  state.activeLessons = [];
+  lessonsRequestId += 1;
+  modulesRequestId += 1;
+
+  paintCourseHeader(course);
   el.courseContentStatus.textContent = 'Loading modules…';
   el.courseLessonsList.textContent = '';
+  el.moduleList.textContent = '';
   el.moduleSelect.textContent = '';
   el.addLessonButton.disabled = true;
   el.newModuleTitle.value = '';
@@ -791,6 +1109,7 @@ async function loadCourseModules(preferredModuleId) {
     });
 
     if (!modules.length) {
+      el.moduleList.textContent = '';
       el.courseContentStatus.textContent = 'Add a module to start building this course.';
       clearLessonControls('Add a module before adding lessons.');
       return;
@@ -798,6 +1117,7 @@ async function loadCourseModules(preferredModuleId) {
 
     const selected = modules.find((module) => String(module.id) === String(preferredModuleId));
     el.moduleSelect.value = String(selected ? selected.id : modules[0].id);
+    renderModuleList();
     await loadModuleLessons(course.id, el.moduleSelect.value);
   } catch (error) {
     if (requestId !== modulesRequestId || (error && error.aborted)) return;
@@ -987,8 +1307,14 @@ function renderModuleLessons(courseId, moduleId) {
       }
     });
 
+    const actions = document.createElement('div');
+    actions.className = 'lesson-row-actions';
+    actions.append(
+      buildEditButton(lesson.title, () => openRename('lesson', lesson)),
+      buildDeleteButton(lesson.title, () => confirmDeleteLesson(lesson, courseId, moduleId))
+    );
     controls.append(dropzone, button, fileMeta, progress);
-    row.append(details, controls);
+    row.append(details, controls, actions);
     fragment.appendChild(row);
   });
 
@@ -1152,7 +1478,7 @@ function showSessionProblem(message, canRetry) {
     banner = document.createElement('div');
     banner.id = 'sessionProblem';
     banner.setAttribute('role', 'alert');
-    banner.style.cssText = 'margin:16px;padding:12px 16px;border-radius:12px;background:rgba(120,53,15,.45);color:#ffedd5;';
+    banner.className = 'session-problem';
     document.body.prepend(banner);
   }
   banner.textContent = `${message} `;
@@ -1377,9 +1703,28 @@ function bindEvents() {
   el.createLessonForm.addEventListener('submit', handleCreateLesson);
   el.moduleSelect.addEventListener('change', () => {
     const courseId = state.activeCourse && state.activeCourse.id;
+    renderModuleList();
     clearLessonControls('Loading lessons…');
     if (courseId && el.moduleSelect.value) loadModuleLessons(courseId, el.moduleSelect.value);
   });
+  el.editCourseButton.addEventListener('click', () => {
+    if (state.activeCourse) openCourseEditor(state.activeCourse);
+  });
+  el.deleteCourseButton.addEventListener('click', () => {
+    if (state.activeCourse) confirmDeleteCourse(state.activeCourse);
+  });
+  el.editCourseForm.addEventListener('submit', saveCourseEdit);
+  el.editCourseModal.querySelectorAll('[data-close-course-edit]').forEach((node) => {
+    node.addEventListener('click', closeCourseEditor);
+  });
+  el.renameForm.addEventListener('submit', saveRename);
+  el.renameModal.querySelectorAll('[data-close-rename]').forEach((node) => {
+    node.addEventListener('click', closeRename);
+  });
+  el.deleteModal.querySelectorAll('[data-close-delete]').forEach((node) => {
+    node.addEventListener('click', closeDeleteModal);
+  });
+  el.deleteConfirm.addEventListener('click', acceptDelete);
   el.courseContentModal.querySelectorAll('[data-close-course-content]').forEach((node) => {
     node.addEventListener('click', closeCourseContent);
   });
@@ -1429,7 +1774,7 @@ function bindEvents() {
       const label = link.textContent.trim().toLowerCase();
       closeProfileMenu();
       if (label === 'logout' || label === 'sign out') {
-        signOut();
+        return;
       } else if (link.dataset.screen) showAdminScreen(link.dataset.screen);
     });
   });
@@ -1441,6 +1786,34 @@ function bindEvents() {
   });
 
   document.addEventListener('keydown', (event) => {
+    if (!el.deleteModal.hidden) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeDeleteModal();
+      } else if (event.key === 'Tab') {
+        trapFocus(event, el.deleteModal);
+      } else if (event.key === 'Enter' && document.activeElement !== el.deleteCancel) {
+        if (document.activeElement !== el.deleteConfirm) {
+          event.preventDefault();
+          el.deleteConfirm.click();
+        }
+      }
+      return;
+    }
+    if (!el.renameModal.hidden) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeRename();
+      } else if (event.key === 'Tab') trapFocus(event, el.renameModal);
+      return;
+    }
+    if (!el.editCourseModal.hidden) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeCourseEditor();
+      } else if (event.key === 'Tab') trapFocus(event, el.editCourseModal);
+      return;
+    }
     if (event.key === 'Escape') {
       if (!el.modal.hidden) closeModal();
       if (!el.courseContentModal.hidden) closeCourseContent();

@@ -28,13 +28,15 @@
     welcomeSub: document.getElementById('welcomeSub'),
     avatar: document.getElementById('avatar'),
     studentName: document.getElementById('studentName'),
-    logout: document.getElementById('logout'),
+    profileName: document.getElementById('profileName'),
+    profileEmail: document.getElementById('profileEmail'),
+    profileAvatar: document.getElementById('profileAvatar'),
 
     enrolledStatus: document.getElementById('enrolledStatus'),
     enrolledCount: document.getElementById('enrolledCount'),
     courses: document.getElementById('courses'),
 
-    browseSection: document.getElementById('browseSection'),
+    browseSection: document.getElementById('explore'),
     browseStatus: document.getElementById('browseStatus'),
     browseGrid: document.getElementById('browseGrid'),
 
@@ -84,18 +86,44 @@
 
   function setState(node, message, isError, withRetry) {
     node.textContent = '';
+    node.classList.add('state-panel');
     node.classList.toggle('error', Boolean(isError));
-    node.appendChild(document.createTextNode(message));
+
+    const title = document.createElement('h3');
+    title.className = 'state-panel__title';
+    title.textContent = isError ? 'Something went wrong.' : 'Nothing to show';
+
+    const body = document.createElement('p');
+    body.className = 'state-panel__body';
+    body.textContent = message;
+
+    node.append(title, body);
 
     if (withRetry) {
       const retry = document.createElement('button');
       retry.type = 'button';
       retry.className = 'retry-btn';
-      retry.style.cssText = 'margin-left: 12px; padding: 4px 12px; border-radius: 6px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; cursor: pointer;';
-      retry.textContent = 'Try again';
+      retry.textContent = 'Try Again';
       retry.addEventListener('click', function () { load(); });
       node.appendChild(retry);
     }
+  }
+
+  function showEmptyCourses(node) {
+    node.textContent = '';
+    node.classList.add('state-panel');
+    node.classList.remove('error');
+    const title = document.createElement('h3');
+    title.className = 'state-panel__title';
+    title.textContent = 'No courses yet';
+    const body = document.createElement('p');
+    body.className = 'state-panel__body';
+    body.textContent = 'You haven\'t enrolled in any courses. Explore available courses to start learning.';
+    const action = document.createElement('a');
+    action.className = 'state-action state-action--primary';
+    action.href = '#explore';
+    action.textContent = 'Explore Courses';
+    node.append(title, body, action);
   }
 
   function clearState(node) {
@@ -238,7 +266,10 @@
       img.alt = '';
       el.spotlightThumb.appendChild(img);
     } else {
-      el.spotlightThumb.innerHTML = '<div style="width:100%;height:100%;display:grid;place-items:center;background:#261f1a;color:#ff6b2b;font-weight:800;">NYC</div>';
+      const mark = document.createElement('div');
+      mark.className = 'thumb-placeholder';
+      mark.textContent = 'NYC';
+      el.spotlightThumb.appendChild(mark);
     }
   }
 
@@ -286,12 +317,7 @@
     el.enrolledCount.textContent = rawEnrolled.length ? plural(rawEnrolled.length, 'course') : '';
 
     if (!rawEnrolled.length) {
-      setState(
-        el.enrolledStatus,
-        'You are not enrolled in any courses yet. Browse the catalog below to get started.',
-        false,
-        false
-      );
+      showEmptyCourses(el.enrolledStatus);
       return;
     }
 
@@ -317,7 +343,6 @@
 
       const card = document.createElement('article');
       card.className = 'course-card' + (course.completed ? ' completed' : '');
-      card.setAttribute('data-tilt', '');
 
       card.appendChild(buildThumb(course));
 
@@ -371,9 +396,10 @@
       link.className = 'btn btn-primary';
       link.href = 'player.html?course=' + encodeURIComponent(course.course_id);
       const label = status === 'completed'
-        ? 'Review Course'
-        : (status === 'progress' ? 'Continue Learning' : 'Start Learning');
-      link.textContent = label;
+        ? 'Review course'
+        : (status === 'progress' ? 'Continue Learning' : 'Start Course');
+      link.appendChild(document.createTextNode(label + ' '));
+      link.appendChild(document.createTextNode('→'));
       link.setAttribute('aria-label', label + ': ' + course.title);
       actions.appendChild(link);
 
@@ -387,10 +413,6 @@
         fills.forEach(function (item) { item.node.style.width = item.percent + '%'; });
       });
     });
-
-    if (window.NYC3D && window.NYC3D.initCardTiltEngine) {
-      window.NYC3D.initCardTiltEngine();
-    }
   }
 
   /* ------------------------------------------------------------*
@@ -413,18 +435,18 @@
 
     el.browseGrid.textContent = '';
 
+    el.browseSection.hidden = false;
     if (!available.length) {
-      el.browseSection.hidden = true;
+      el.browseGrid.textContent = '';
+      setState(el.browseStatus, 'No published courses are open for enrollment right now.', false, false);
       return;
     }
 
-    el.browseSection.hidden = false;
     clearState(el.browseStatus);
 
     available.forEach(function (course) {
       const card = document.createElement('article');
       card.className = 'course-card';
-      card.setAttribute('data-tilt', '');
 
       card.appendChild(buildThumb(course));
 
@@ -460,10 +482,6 @@
       card.appendChild(body);
       el.browseGrid.appendChild(card);
     });
-
-    if (window.NYC3D && window.NYC3D.initCardTiltEngine) {
-      window.NYC3D.initCardTiltEngine();
-    }
   }
 
   async function enrollInCourse(courseId, button) {
@@ -512,7 +530,7 @@
       const reason = enrolledResult.status === 'rejected'
         ? enrolledResult.reason.message
         : 'The server returned an unexpected response.';
-      setState(el.enrolledStatus, 'Unable to load your courses: ' + reason, true, true);
+      setState(el.enrolledStatus, 'We couldn\'t load your courses.', true, true);
       return;
     }
 
@@ -551,15 +569,32 @@
   /* ------------------------------------------------------------*
    * Init
    * ---------------------------------------------------------- */
-  const name = String(user.name || '').trim();
-  el.welcome.textContent = name ? 'Welcome back, ' + firstName(name) : 'Your courses';
-  el.studentName.textContent = name || 'Student';
-  el.avatar.textContent = (name || 'S').charAt(0).toUpperCase();
+  function showIdentity(account) {
+    const displayName = String(account && account.name || '').trim();
+    const email = String(account && account.email || '').trim();
+    const initial = (displayName || 'S').charAt(0).toUpperCase();
+    el.welcome.textContent = displayName ? 'Welcome back, ' + firstName(displayName) : 'Your courses';
+    el.studentName.textContent = displayName || 'Student';
+    el.avatar.textContent = initial;
+    if (el.profileName) el.profileName.textContent = displayName || 'Student';
+    if (el.profileEmail) el.profileEmail.textContent = email || 'Signed in';
+    if (el.profileAvatar) el.profileAvatar.textContent = initial;
+  }
 
-  el.logout.addEventListener('click', function () {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    window.location.href = 'login.html';
+  showIdentity(user);
+
+  document.querySelectorAll('.app-nav__link').forEach(function (link) {
+    link.addEventListener('click', function () {
+      document.querySelectorAll('.app-nav__link').forEach(function (item) { item.classList.remove('is-active'); });
+      link.classList.add('is-active');
+      const nav = document.getElementById('studentNav');
+      const toggle = document.querySelector('[data-nav-toggle]');
+      if (nav) nav.classList.remove('is-open');
+      if (toggle) {
+        toggle.setAttribute('aria-expanded', 'false');
+        toggle.textContent = 'Menu';
+      }
+    });
   });
 
   window.NYCSession.resolveSession().then(function (session) {
@@ -577,10 +612,7 @@
     }
     sessionReady = true;
     user = session.user || user;
-    const confirmedName = String(user.name || '').trim();
-    el.welcome.textContent = confirmedName ? 'Welcome back, ' + firstName(confirmedName) : 'Your courses';
-    el.studentName.textContent = confirmedName || 'Student';
-    el.avatar.textContent = (confirmedName || 'S').charAt(0).toUpperCase();
+    showIdentity(user);
     load();
   });
 

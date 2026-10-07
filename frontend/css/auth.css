@@ -1,0 +1,53 @@
+/* Auth pages. Overrides the older inline dark treatment. */
+
+.hero-heading {
+  background: none;
+  -webkit-text-fill-color: var(--text-primary);
+  color: var(--text-primary);
+  font-weight: 650;
+  letter-spacing: -0.03em;
+}
+.hero-heading span {
+  background: none;
+  -webkit-text-fill-color: var(--primary);
+  color: var(--primary);
+}
+.brand-icon-3d {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: var(--primary);
+  box-shadow: none;
+  font-size: 0.72rem;
+}
+.live-dot { background: var(--success); box-shadow: none; animation: none; }
+.hero-eyebrow { letter-spacing: 0.04em; font-weight: 600; }
+.feature-pill, .stat-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  border-radius: 8px;
+  box-shadow: none;
+}
+.pill-dot { background: var(--primary); }
+.auth-card {
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 12px !important;
+  box-shadow: var(--shadow-sm) !important;
+}
+.auth-card:hover { border-color: var(--border) !important; }
+.auth-kicker { color: var(--text-tertiary); letter-spacing: 0.04em; }
+.visual-orb, .visual-card--back { display: none; }
+.visual-card--front {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  color: var(--text-primary);
+}
+.vc-bar { background: #E2E8F0; }
+.vc-bar-fill { background: var(--primary); box-shadow: none; }
+.vc-stat-num, .stat-num { color: var(--text-primary); }
+#message { color: var(--error); }
+.switch-auth a { color: var(--primary); font-weight: 650; }
+.switch-auth a:hover { color: var(--primary-hover); }

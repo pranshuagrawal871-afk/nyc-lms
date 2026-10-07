@@ -194,8 +194,6 @@
      Init
      ============================================================ */
   function init() {
-    initBackgroundCanvas();
-    initSpotlightTracking();
     animateCounters();
     initPasswordToggles();
   }

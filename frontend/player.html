@@ -3,13 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="theme-color" content="#050403">
+<meta name="theme-color" content="#F8FAFC">
 <title>Course Player — NYC LMS</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/theme.css">
 <link rel="stylesheet" href="css/player.css">
+<link rel="stylesheet" href="css/product.css">
 </head>
 <body>
 
@@ -37,8 +38,9 @@
         <span class="student-name" id="studentName">Student</span>
       </div>
       <a href="dashboard.html" class="btn-3d btn-3d--secondary btn-sm" style="text-decoration:none;">
-        Back to Dashboard
+        Dashboard
       </a>
+      <button class="btn-3d btn-3d--secondary btn-sm" type="button" data-confirm-logout>Log out</button>
     </div>
   </header>
 
@@ -211,6 +213,7 @@
   </main>
 
   <script src="js/config.js"></script>
+  <script src="js/ui.js"></script>
   <script src="js/progressClient.js"></script>
   <script src="js/app-3d.js"></script>
   <script src="js/player.js"></script>
