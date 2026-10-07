@@ -5,21 +5,37 @@ const pool = require("../config/db");
 const jwt = require("jsonwebtoken");
 const authenticateToken = require("../middleware/auth");
 const getSupabase = require("../config/supabase");
+const { authorizeLesson } = require("../lib/entitlement");
 
 const router = express.Router();
+
+// Revocation window: stream JWTs are checked again when redeemed (enrollment
+// and session version). The response then redirects to a Supabase signed URL.
+// That signed URL cannot be revoked early and stays valid for
+// STREAM_URL_TTL_SECONDS (default 1 hour). Password changes reject new stream
+// tokens immediately. The player refreshes the token when playback fails.
+function streamTtlSeconds() {
+    const configured = Number(process.env.STREAM_URL_TTL_SECONDS);
+    if (Number.isInteger(configured) && configured >= 60 && configured <= 60 * 60) return configured;
+    return 60 * 60;
+}
 
 router.get("/token/:lessonId", authenticateToken, async (req, res) => {
     const lessonId = Number(req.params.lessonId);
     if (!Number.isSafeInteger(lessonId) || lessonId <= 0) return res.status(400).json({ message: "A valid lesson ID is required" });
     try {
-        const lesson = await pool.query(`SELECT l.id, m.course_id FROM lessons l JOIN modules m ON m.id = l.module_id WHERE l.id = $1`, [lessonId]);
-        if (!lesson.rows.length) return res.status(404).json({ message: "Lesson not found" });
-        if (req.user.role !== "admin") {
-            const enrollment = await pool.query("SELECT 1 FROM enrollments WHERE user_id = $1 AND course_id = $2", [req.user.id, lesson.rows[0].course_id]);
-            if (!enrollment.rows.length) return res.status(403).json({ message: "Enroll in this course to watch its lessons" });
-        }
-        const token = jwt.sign({ scope: "lesson-stream", lessonId, userId: req.user.id }, process.env.JWT_SECRET, { expiresIn: "1h" });
-        return res.json({ url: `/api/stream/${lessonId}?token=${encodeURIComponent(token)}` });
+        const access = await authorizeLesson(req.user, lessonId);
+        if (!access.ok) return res.status(access.status).json({ message: access.message });
+        const version = await pool.query("SELECT session_version FROM users WHERE id = $1", [req.user.id]);
+        const ttl = streamTtlSeconds();
+        const token = jwt.sign({
+            scope: "lesson-stream",
+            lessonId,
+            userId: req.user.id,
+            role: req.user.role,
+            sv: Number(version.rows[0] && version.rows[0].session_version) || 0
+        }, process.env.JWT_SECRET, { expiresIn: ttl });
+        return res.json({ url: `/api/stream/${lessonId}?token=${encodeURIComponent(token)}`, expires_in: ttl });
     } catch (error) {
         console.error("Stream authorization failed:", error.message);
         return res.status(500).json({ message: "Could not authorize media playback" });
@@ -34,6 +50,17 @@ router.get("/:lessonId", async (req, res) => {
         try { access = jwt.verify(String(req.query.token || ""), process.env.JWT_SECRET); }
         catch (_) { return res.status(401).json({ message: "A valid stream token is required" }); }
         if (access.scope !== "lesson-stream" || Number(access.lessonId) !== lessonId) return res.status(403).json({ message: "Stream token does not grant access to this lesson" });
+        const viewer = await pool.query("SELECT id, role, session_version FROM users WHERE id = $1", [access.userId]);
+        if (!viewer.rows.length) return res.status(401).json({ message: "A valid stream token is required" });
+        const tokenVersion = Number.isInteger(access.sv) ? access.sv : 0;
+        if (Number(viewer.rows[0].session_version) !== tokenVersion) {
+            return res.status(401).json({ message: "Stream authorization expired. Reload the lesson." });
+        }
+        const lessonAccess = await authorizeLesson(
+            { id: viewer.rows[0].id, role: viewer.rows[0].role },
+            lessonId
+        );
+        if (!lessonAccess.ok) return res.status(lessonAccess.status).json({ message: lessonAccess.message });
 
         // Get lesson information
         const result = await pool.query(
@@ -62,7 +89,7 @@ router.get("/:lessonId", async (req, res) => {
         if (String(lesson.file_path).startsWith("courses/")) {
             const { data, error } = await getSupabase().storage
                 .from("course-videos")
-                .createSignedUrl(lesson.file_path, 60 * 60);
+                .createSignedUrl(lesson.file_path, streamTtlSeconds());
             if (error || !data || !data.signedUrl) {
                 console.error("Could not create lesson media URL:", error && error.message);
                 return res.status(502).json({ message: "Could not prepare lesson playback" });

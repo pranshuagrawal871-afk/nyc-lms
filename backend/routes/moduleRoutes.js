@@ -3,6 +3,8 @@ const pool = require("../config/db");
 const authenticateToken = require("../middleware/auth");
 const requireAdmin = authenticateToken.requireAdmin;
 const requireCourseAccess = require("../middleware/courseAccess");
+const { parseTitle, respondWithDbError } = require("../lib/validation");
+const { returnPublishedCourseToDraft } = require("../lib/publishReadiness");
 
 const router = express.Router();
 
@@ -36,16 +38,16 @@ router.patch("/:moduleId", authenticateToken, requireAdmin, async (req, res) => 
     const id = Number(req.params.moduleId);
     const { title, module_order } = req.body;
     if (!Number.isSafeInteger(id) || id <= 0) return res.status(400).json({ message: "A valid module ID is required" });
-    if (title !== undefined && (typeof title !== "string" || !title.trim())) return res.status(400).json({ message: "Module title is required" });
+    const parsedTitle = title === undefined ? null : parseTitle(title, "Module title");
+    if (parsedTitle && parsedTitle.error) return res.status(400).json({ message: parsedTitle.error });
     if (module_order !== undefined && (!Number.isInteger(Number(module_order)) || Number(module_order) < 1)) return res.status(400).json({ message: "module_order must be a positive integer" });
     try {
         const result = await pool.query(`UPDATE modules SET title = COALESCE($1,title), module_order = COALESCE($2,module_order)
-            WHERE id = $3 RETURNING *`, [title === undefined ? null : title.trim(), module_order === undefined ? null : Number(module_order), id]);
+            WHERE id = $3 RETURNING *`, [parsedTitle ? parsedTitle.value : null, module_order === undefined ? null : Number(module_order), id]);
         if (!result.rows.length) return res.status(404).json({ message: "Module not found" });
         return res.json({ module: result.rows[0] });
     } catch (error) {
-        console.error("Module update failed:", error.message);
-        return res.status(500).json({ message: "Could not update module" });
+        return respondWithDbError(res, error, "Could not update module");
     }
 });
 
@@ -55,15 +57,14 @@ router.post("/course/:courseId", authenticateToken, requireAdmin, async (req, re
     try {
         const { courseId } = req.params;
         if (!/^\d+$/.test(courseId) || Number(courseId) <= 0) return res.status(400).json({ message: "A valid course ID is required" });
-        const { title, module_order } = req.body;
-
-        if (!title || title.trim() === "") {
-            return res.status(400).json({
-                message: "Module title is required"
-            });
-        }
+        const parsedTitle = parseTitle(req.body.title, "Module title");
+        if (parsedTitle.error) return res.status(400).json({ message: parsedTitle.error });
+        const { module_order } = req.body;
         const order = module_order === undefined ? 1 : Number(module_order);
         if (!Number.isInteger(order) || order < 1) return res.status(400).json({ message: "module_order must be a positive integer" });
+
+        const course = await pool.query("SELECT id, published FROM courses WHERE id = $1", [courseId]);
+        if (!course.rows.length) return res.status(404).json({ message: "Course not found" });
 
         const result = await pool.query(
             `INSERT INTO modules
@@ -72,22 +73,22 @@ router.post("/course/:courseId", authenticateToken, requireAdmin, async (req, re
             RETURNING *`,
             [
                 courseId,
-                title.trim(),
+                parsedTitle.value,
                 order
             ]
         );
+        const courseUnpublished = await returnPublishedCourseToDraft(courseId);
 
         res.status(201).json({
-            message: "Module created successfully",
-            module: result.rows[0]
+            message: courseUnpublished
+                ? "Module created. The course was returned to draft because it is no longer ready to publish."
+                : "Module created successfully",
+            module: result.rows[0],
+            course_unpublished: courseUnpublished
         });
 
     } catch (error) {
-        console.error("Error creating module:", error);
-
-        res.status(500).json({
-            message: "Failed to create module"
-        });
+        return respondWithDbError(res, error, "Failed to create module");
     }
 });
 

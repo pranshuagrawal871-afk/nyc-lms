@@ -1,7 +1,6 @@
 const express = require("express");
 const path = require("path");
 const fs = require("fs/promises");
-const { spawn } = require("child_process");
 const crypto = require("crypto");
 const pool = require("../config/db");
 const getSupabase = require("../config/supabase");
@@ -9,6 +8,7 @@ const upload = require("../middleware/upload");
 const authenticateToken = require("../middleware/auth");
 const requireAdmin = authenticateToken.requireAdmin;
 const thumbnailUpload = require("../middleware/thumbnailUpload");
+const { inspectUploadedMedia, retireObject, cleanupRetiredMedia } = require("../lib/mediaLifecycle");
 
 const router = express.Router();
 
@@ -34,6 +34,11 @@ router.post("/thumbnail", authenticateToken, requireAdmin, thumbnailUpload.singl
             });
         if (error) throw error;
         const { data: publicData } = getSupabase().storage.from("course-thumbnails").getPublicUrl(data.path);
+        try {
+            await retireObject("course-thumbnails", data.path);
+        } catch (retireError) {
+            console.error("Could not schedule thumbnail cleanup:", retireError.message);
+        }
         return res.status(201).json({
             message: "Thumbnail uploaded successfully",
             thumbnailUrl: publicData.publicUrl
@@ -45,70 +50,6 @@ router.post("/thumbnail", authenticateToken, requireAdmin, thumbnailUpload.singl
         await removeUploadedFile(req.file.path);
     }
 });
-
-function runFfprobe(binary, filePath) {
-    return new Promise((resolve, reject) => {
-        const child = spawn(binary, [
-            "-v", "error",
-            "-show_entries", "format=duration",
-            "-of", "default=noprint_wrappers=1:nokey=1",
-            filePath
-        ], { windowsHide: true });
-
-        let stdout = "";
-        let stderr = "";
-        const timeout = setTimeout(() => {
-            child.kill("SIGKILL");
-            reject(new Error("ffprobe timed out while reading media metadata"));
-        }, 20000);
-
-        child.stdout.setEncoding("utf8");
-        child.stderr.setEncoding("utf8");
-        child.stdout.on("data", chunk => { stdout += chunk; });
-        child.stderr.on("data", chunk => { stderr += chunk; });
-        child.once("error", error => {
-            clearTimeout(timeout);
-            reject(error);
-        });
-        child.once("close", code => {
-            clearTimeout(timeout);
-            if (code !== 0) {
-                return reject(new Error(stderr.trim() || `ffprobe exited with code ${code}`));
-            }
-
-            const seconds = Number(stdout.trim());
-            if (!Number.isFinite(seconds) || seconds < 0) {
-                return reject(new Error("ffprobe did not return a valid media duration"));
-            }
-            resolve(Math.round(seconds));
-        });
-    });
-}
-
-async function detectDuration(filePath) {
-    let binary = "ffprobe";
-    try {
-        const bundled = require("ffprobe-static");
-        if (bundled && bundled.path) binary = bundled.path;
-    } catch (error) {
-        if (error.code !== "MODULE_NOT_FOUND") throw error;
-    }
-
-    try {
-        return await runFfprobe(binary, filePath);
-    } catch (error) {
-        // Keep existing deployments working when they have not yet installed
-        // the bundled binary; metadata is still read from the uploaded file.
-        if (error.code !== "ENOENT") throw error;
-        const { parseFile } = await import("music-metadata");
-        const metadata = await parseFile(filePath);
-        const seconds = metadata.format.duration;
-        if (!Number.isFinite(seconds) || seconds < 0) {
-            throw new Error("No valid duration was found in the media metadata");
-        }
-        return Math.round(seconds);
-    }
-}
 
 async function removeUploadedFile(filePath) {
     if (!filePath) return;
@@ -156,7 +97,7 @@ router.post("/lesson/:lessonId", authenticateToken, requireAdmin, upload.single(
         const filePath = req.file.path;
 
         const lessonInfo = await pool.query(
-            `SELECT l.id, m.course_id FROM lessons l JOIN modules m ON m.id = l.module_id WHERE l.id = $1`,
+            `SELECT l.id, l.file_path, m.course_id FROM lessons l JOIN modules m ON m.id = l.module_id WHERE l.id = $1`,
             [lessonId]
         );
         if (!lessonInfo.rows.length) {
@@ -166,12 +107,13 @@ router.post("/lesson/:lessonId", authenticateToken, requireAdmin, upload.single(
 
         let duration;
         try {
-            duration = await detectDuration(filePath);
+            const inspected = await inspectUploadedMedia(filePath, extension);
+            duration = inspected.duration;
         } catch (error) {
             await removeUploadedFile(filePath);
-            console.error("Unable to determine uploaded media duration:", error.message);
-            return res.status(422).json({
-                message: "Could not determine media duration. The uploaded file was discarded; try a valid video or audio file."
+            console.error("Uploaded media was rejected:", error.message);
+            return res.status(error.status || 422).json({
+                message: error.message || "Could not determine media duration. The uploaded file was discarded; try a valid video or audio file."
             });
         }
 
@@ -209,6 +151,18 @@ router.post("/lesson/:lessonId", authenticateToken, requireAdmin, upload.single(
         }
 
         databaseUpdated = true;
+        const previousPath = lessonInfo.rows[0].file_path;
+        if (previousPath && previousPath !== storagePath) {
+            const bucket = String(previousPath).startsWith("courses/") ? "course-videos" : "local-uploads";
+            try {
+                await retireObject(bucket, previousPath);
+            } catch (retireError) {
+                console.error("Could not schedule removal of replaced media:", retireError.message);
+            }
+        }
+        cleanupRetiredMedia().catch((cleanupError) => {
+            console.error("Retired media cleanup failed:", cleanupError.message);
+        });
         await removeUploadedFile(filePath);
 
         // Success response

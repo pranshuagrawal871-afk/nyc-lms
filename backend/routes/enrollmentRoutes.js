@@ -1,6 +1,7 @@
 const express = require("express");
 const pool = require("../config/db");
 const authenticateToken = require("../middleware/auth");
+const { authorizeEnrollment, PLAYABLE_LESSON_SQL } = require("../lib/entitlement");
 
 const router = express.Router();
 
@@ -16,8 +17,8 @@ router.get("/my", authenticateToken, async (req, res) => {
                 c.description,
                 c.thumbnail,
                 c.published,
-                COUNT(l.id) AS total_lessons,
-                COUNT(l.id) FILTER (WHERE p.completed) AS completed_lessons
+                COUNT(l.id) FILTER (WHERE ${PLAYABLE_LESSON_SQL}) AS total_lessons,
+                COUNT(l.id) FILTER (WHERE ${PLAYABLE_LESSON_SQL} AND p.completed) AS completed_lessons
              FROM enrollments e
              JOIN courses c ON c.id = e.course_id
              LEFT JOIN modules m ON m.course_id = c.id
@@ -106,7 +107,6 @@ router.post("/", authenticateToken, async (req, res) => {
             return res.status(404).json({ message: "Course not found" });
         }
 
-        // Already enrolled? Return the existing record.
         const existing = await pool.query(
             `SELECT id, course_id, enrolled_at
              FROM enrollments
@@ -122,16 +122,30 @@ router.post("/", authenticateToken, async (req, res) => {
             });
         }
 
-        if (courseResult.rows[0].published !== true) {
-            return res.status(403).json({ message: "This course is not available" });
-        }
+        const entitlement = await authorizeEnrollment(courseResult.rows[0]);
+        if (!entitlement.ok) return res.status(entitlement.status).json({ message: entitlement.message });
 
         const result = await pool.query(
             `INSERT INTO enrollments (user_id, course_id)
              VALUES ($1, $2)
+             ON CONFLICT (user_id, course_id) DO NOTHING
              RETURNING id, user_id, course_id, enrolled_at`,
             [req.user.id, courseId]
         );
+
+        if (!result.rows.length) {
+            const raced = await pool.query(
+                `SELECT id, course_id, enrolled_at
+                 FROM enrollments
+                 WHERE user_id = $1 AND course_id = $2`,
+                [req.user.id, courseId]
+            );
+            return res.json({
+                message: "Already enrolled",
+                alreadyEnrolled: true,
+                enrollment: raced.rows[0]
+            });
+        }
 
         res.status(201).json({
             message: "Enrolled successfully",
@@ -139,8 +153,10 @@ router.post("/", authenticateToken, async (req, res) => {
         });
 
     } catch (error) {
-        console.error("Enrollment error:", error);
-
+        if (error.code === "23505") {
+            return res.json({ message: "Already enrolled", alreadyEnrolled: true });
+        }
+        console.error("Enrollment error:", error.message);
         res.status(500).json({
             message: "Failed to enroll in course"
         });

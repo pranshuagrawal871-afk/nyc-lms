@@ -209,6 +209,7 @@
           <div class="screen-header"><div><p class="screen-eyebrow">PEOPLE</p><h1 id="studentsHeading">Students</h1><p class="screen-description">Manage learners and review their course activity.</p></div><div class="search-box"><svg class="search-box__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg><input type="search" id="studentSearch" class="input-3d" placeholder="Search students…" aria-label="Search students" autocomplete="off"></div></div>
           <div id="studentsStatus" class="panel__subtitle" role="status">Loading students…</div>
           <div class="table-wrap" id="studentsTableWrap" hidden><table class="course-table"><thead><tr><th>Student</th><th>Email</th><th>Enrolled Courses</th><th>Completed Lessons</th><th>Joined</th></tr></thead><tbody id="studentsTableBody"></tbody></table></div>
+          <div id="studentsPager" class="panel__subtitle" hidden></div>
         </section>
 
         <!-- Analytics section -->
@@ -424,6 +425,7 @@
   <div class="toasts" id="toasts" aria-live="polite" aria-atomic="false"></div>
 
   <script src="js/config.js"></script>
+  <script src="js/session.js"></script>
   <script src="js/app-3d.js"></script>
   <script src="js/admin.js" defer></script>
 </body>

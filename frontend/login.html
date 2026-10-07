@@ -473,11 +473,27 @@
   </div>
 
   <script src="js/config.js"></script>
+  <script src="js/session.js"></script>
   <script src="js/app-3d.js"></script>
   <script>
     const form    = document.getElementById('loginForm');
     const message = document.getElementById('message');
     const submitBtn = document.getElementById('loginSubmit');
+
+    const bootParams = new URLSearchParams(window.location.search);
+    if (bootParams.get('passwordChanged') === '1') {
+      message.textContent = 'Password changed. Sign in with your new password.';
+    }
+
+    window.NYCSession.resolveSession().then(function (session) {
+      if (session.status === 'ok') {
+        window.location.replace(window.NYCSession.homeFor(session.user));
+        return;
+      }
+      if (session.status === 'unavailable') {
+        message.textContent = 'The server could not be reached. Your saved login was kept.';
+      }
+    });
 
     form.addEventListener('submit', async function (e) {
       e.preventDefault();

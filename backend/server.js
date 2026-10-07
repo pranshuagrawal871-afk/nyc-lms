@@ -13,7 +13,11 @@ const authRoutes = require("./routes/authRoutes");
 const enrollmentRoutes = require("./routes/enrollmentRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 
+const { ensureSchema } = require("./lib/schema");
+const { cleanupRetiredMedia } = require("./lib/mediaLifecycle");
+
 const app = express();
+app.set("trust proxy", 1);
 
 const developmentOrigins = new Set([
     "http://localhost:3000",
@@ -98,9 +102,19 @@ app.use((error, req, res, next) => {
 
 if (require.main === module) {
     const PORT = process.env.PORT || 3000;
-    app.listen(PORT, () => {
-        console.log(`Server running on http://localhost:${PORT}`);
-    });
+    ensureSchema()
+        .then(() => cleanupRetiredMedia().catch((error) => {
+            console.error("Retired media cleanup failed:", error.message);
+        }))
+        .then(() => {
+            app.listen(PORT, () => {
+                console.log(`Server running on http://localhost:${PORT}`);
+            });
+        })
+        .catch((error) => {
+            console.error("Schema check failed:", error.message);
+            process.exit(1);
+        });
 }
 
 module.exports = app;

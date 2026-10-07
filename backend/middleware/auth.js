@@ -21,12 +21,17 @@ function authenticateToken(req, res, next) {
             return res.status(401).json({ message: "Invalid authentication token" });
         }
 
-        return pool.query("SELECT id, name, email, role FROM users WHERE id = $1", [payload.id])
+        return pool.query("SELECT id, name, email, role, session_version FROM users WHERE id = $1", [payload.id])
             .then(result => {
                 if (!result.rows.length) return res.status(401).json({ message: "Invalid authentication token" });
                 const user = result.rows[0];
                 if (!["admin", "student"].includes(user.role)) return res.status(403).json({ message: "Account role is not authorized" });
-                req.user = user;
+                // Tokens issued before session versions existed are treated as version 0.
+                const tokenVersion = Number.isInteger(payload.sv) ? payload.sv : 0;
+                if (Number(user.session_version) !== tokenVersion) {
+                    return res.status(401).json({ message: "Session is no longer valid. Please log in again." });
+                }
+                req.user = { id: user.id, name: user.name, email: user.email, role: user.role };
                 return next();
             })
             .catch(error => {

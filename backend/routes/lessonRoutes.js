@@ -3,6 +3,8 @@ const pool = require("../config/db");
 const authenticateToken = require("../middleware/auth");
 const requireAdmin = authenticateToken.requireAdmin;
 const requireCourseAccess = require("../middleware/courseAccess");
+const { parseTitle, respondWithDbError } = require("../lib/validation");
+const { returnPublishedCourseToDraft } = require("../lib/publishReadiness");
 
 const router = express.Router();
 
@@ -13,13 +15,15 @@ router.get("/module/:moduleId", authenticateToken, requireCourseAccess("module")
         const { moduleId } = req.params;
         if (!/^\d+$/.test(moduleId) || Number(moduleId) <= 0) return res.status(400).json({ message: "A valid module ID is required" });
 
+        const playableOnly = req.user.role !== "admin";
         const result = await pool.query(
             `SELECT id, module_id, title, type, duration, lesson_order,
                     (file_path IS NOT NULL AND file_path <> '') AS has_media
              FROM lessons
              WHERE module_id = $1
+               AND ($2::boolean = false OR (file_path IS NOT NULL AND file_path <> '' AND COALESCE(duration, 0) > 0))
              ORDER BY lesson_order`,
-            [moduleId]
+            [moduleId, playableOnly]
         );
 
         res.json(result.rows);
@@ -40,13 +44,9 @@ router.post("/module/:moduleId", authenticateToken, requireAdmin, async (req, re
         const { moduleId } = req.params;
         if (!/^\d+$/.test(moduleId) || Number(moduleId) <= 0) return res.status(400).json({ message: "A valid module ID is required" });
 
-        const { title, type, duration, lesson_order } = req.body;
-
-        if (!title || title.trim() === "") {
-            return res.status(400).json({
-                message: "Lesson title is required"
-            });
-        }
+        const { type, duration, lesson_order } = req.body;
+        const parsedTitle = parseTitle(req.body.title, "Lesson title");
+        if (parsedTitle.error) return res.status(400).json({ message: parsedTitle.error });
 
         if (!type || !["video", "audio"].includes(type)) {
             return res.status(400).json({
@@ -58,6 +58,12 @@ router.post("/module/:moduleId", authenticateToken, requireAdmin, async (req, re
         if (!Number.isInteger(order) || order < 1) return res.status(400).json({ message: "lesson_order must be a positive integer" });
         if (!Number.isFinite(lessonDuration) || lessonDuration < 0) return res.status(400).json({ message: "duration must be a non-negative number" });
 
+        const module = await pool.query(
+            "SELECT m.id, m.course_id FROM modules m WHERE m.id = $1",
+            [moduleId]
+        );
+        if (!module.rows.length) return res.status(404).json({ message: "Module not found" });
+
         const result = await pool.query(
             `INSERT INTO lessons
             (module_id, title, type, duration, lesson_order)
@@ -66,24 +72,24 @@ router.post("/module/:moduleId", authenticateToken, requireAdmin, async (req, re
                       (file_path IS NOT NULL AND file_path <> '') AS has_media`,
             [
                 moduleId,
-                title.trim(),
+                parsedTitle.value,
                 type,
                 Math.floor(lessonDuration),
                 order
             ]
         );
+        const courseUnpublished = await returnPublishedCourseToDraft(module.rows[0].course_id);
 
         res.status(201).json({
-            message: "Lesson created successfully",
-            lesson: result.rows[0]
+            message: courseUnpublished
+                ? "Lesson created. The course was returned to draft until this lesson has playable media and the course is published again."
+                : "Lesson created successfully",
+            lesson: result.rows[0],
+            course_unpublished: courseUnpublished
         });
 
     } catch (error) {
-        console.error("Error creating lesson:", error);
-
-        res.status(500).json({
-            message: "Failed to create lesson"
-        });
+        return respondWithDbError(res, error, "Failed to create lesson");
     }
 });
 
@@ -91,7 +97,8 @@ router.patch("/:lessonId", authenticateToken, requireAdmin, async (req, res) => 
     const id = Number(req.params.lessonId);
     const { title, type, duration, lesson_order } = req.body;
     if (!Number.isSafeInteger(id) || id <= 0) return res.status(400).json({ message: "A valid lesson ID is required" });
-    if (title !== undefined && (typeof title !== "string" || !title.trim())) return res.status(400).json({ message: "Lesson title is required" });
+    const parsedTitle = title === undefined ? null : parseTitle(title, "Lesson title");
+    if (parsedTitle && parsedTitle.error) return res.status(400).json({ message: parsedTitle.error });
     if (type !== undefined && !["video", "audio"].includes(type)) return res.status(400).json({ message: "Lesson type must be video or audio" });
     if (duration !== undefined && (!Number.isFinite(Number(duration)) || Number(duration) < 0)) return res.status(400).json({ message: "duration must be a non-negative number" });
     if (lesson_order !== undefined && (!Number.isInteger(Number(lesson_order)) || Number(lesson_order) < 1)) return res.status(400).json({ message: "lesson_order must be a positive integer" });
@@ -100,14 +107,13 @@ router.patch("/:lessonId", authenticateToken, requireAdmin, async (req, res) => 
             duration = COALESCE($3,duration), lesson_order = COALESCE($4,lesson_order)
             WHERE id = $5 RETURNING id,module_id,title,type,duration,lesson_order,
             (file_path IS NOT NULL AND file_path <> '') AS has_media`, [
-            title === undefined ? null : title.trim(), type === undefined ? null : type,
+            parsedTitle ? parsedTitle.value : null, type === undefined ? null : type,
             duration === undefined ? null : Number(duration), lesson_order === undefined ? null : Number(lesson_order), id
         ]);
         if (!result.rows.length) return res.status(404).json({ message: "Lesson not found" });
         return res.json({ lesson: result.rows[0] });
     } catch (error) {
-        console.error("Lesson update failed:", error.message);
-        return res.status(500).json({ message: "Could not update lesson" });
+        return respondWithDbError(res, error, "Could not update lesson");
     }
 });
 

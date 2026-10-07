@@ -2,13 +2,39 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="refresh" content="0; url=login.html">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>NYC LMS</title>
+  <link rel="stylesheet" href="css/theme.css">
 </head>
 <body>
+  <main id="boot" style="max-width: 32rem; margin: 12vh auto; padding: 24px; text-align: center;">
+    <p id="bootStatus" role="status">Checking your session…</p>
+    <button id="bootRetry" type="button" hidden>Try again</button>
+  </main>
+  <script src="js/config.js"></script>
+  <script src="js/session.js"></script>
   <script>
-    window.location.replace("login.html");
+    const statusEl = document.getElementById("bootStatus");
+    const retryEl = document.getElementById("bootRetry");
+
+    async function boot() {
+      retryEl.hidden = true;
+      statusEl.textContent = "Checking your session…";
+      const session = await window.NYCSession.resolveSession();
+      if (session.status === "ok") {
+        window.location.replace(window.NYCSession.homeFor(session.user));
+        return;
+      }
+      if (session.status === "unavailable") {
+        statusEl.textContent = "The server could not be reached. Your saved login was kept.";
+        retryEl.hidden = false;
+        return;
+      }
+      window.location.replace("login.html");
+    }
+
+    retryEl.addEventListener("click", boot);
+    boot();
   </script>
 </body>
 </html>

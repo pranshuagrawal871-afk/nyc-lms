@@ -177,12 +177,15 @@
     doc.addEventListener('click', function (e) {
       const btn = e.target.closest('[data-toggle-password], [data-password-toggle]');
       if (!btn) return;
+      e.preventDefault();
+      e.stopPropagation();
       const id    = btn.dataset.togglePassword || btn.dataset.passwordToggle;
       const input = doc.getElementById(id);
       if (!input) return;
       const isText = input.type === 'text';
       input.type = isText ? 'password' : 'text';
       btn.textContent = isText ? 'Show' : 'Hide';
+      btn.setAttribute('aria-pressed', String(!isText));
       btn.setAttribute('aria-label', isText ? 'Show password' : 'Hide password');
     });
   }

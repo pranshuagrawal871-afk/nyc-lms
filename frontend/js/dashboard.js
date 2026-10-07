@@ -51,6 +51,7 @@
   try { user = JSON.parse(localStorage.getItem('user') || '{}') || {}; } catch (_) { user = {}; }
 
   let loadId = 0;
+  let sessionReady = false;
   let lastLoadedAt = 0;
   let rawEnrolled = [];
   let rawAvailable = [];
@@ -561,11 +562,31 @@
     window.location.href = 'login.html';
   });
 
+  window.NYCSession.resolveSession().then(function (session) {
+    if (session.status === 'invalid' || session.status === 'anonymous') {
+      window.location.replace('login.html');
+      return;
+    }
+    if (session.status === 'unavailable') {
+      setState(el.enrolledStatus, 'The server could not be reached. Your saved login was kept.', true, true);
+      return;
+    }
+    if (session.user && session.user.role === 'admin') {
+      window.location.replace('admin.html');
+      return;
+    }
+    sessionReady = true;
+    user = session.user || user;
+    const confirmedName = String(user.name || '').trim();
+    el.welcome.textContent = confirmedName ? 'Welcome back, ' + firstName(confirmedName) : 'Your courses';
+    el.studentName.textContent = confirmedName || 'Student';
+    el.avatar.textContent = (confirmedName || 'S').charAt(0).toUpperCase();
+    load();
+  });
+
   document.addEventListener('visibilitychange', function () {
-    if (document.visibilityState === 'visible' && Date.now() - lastLoadedAt > REFRESH_AFTER_MS) {
+    if (sessionReady && document.visibilityState === 'visible' && Date.now() - lastLoadedAt > REFRESH_AFTER_MS) {
       load({ silent: true });
     }
   });
-
-  load();
 })();

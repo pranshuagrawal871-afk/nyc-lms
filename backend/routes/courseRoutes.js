@@ -2,6 +2,9 @@ const express = require("express");
 const pool = require("../config/db");
 const authenticateToken = require("../middleware/auth");
 const requireAdmin = authenticateToken.requireAdmin;
+const { parseTitle, respondWithDbError } = require("../lib/validation");
+const { authorizeCourseRead } = require("../lib/entitlement");
+const { courseReadiness } = require("../lib/publishReadiness");
 
 const router = express.Router();
 const courseListSql = `SELECT c.*,
@@ -46,6 +49,35 @@ router.get("/", async (req, res) => {
 });
 
 
+router.get("/:courseId", async (req, res) => {
+    const courseId = Number(req.params.courseId);
+    if (!Number.isInteger(courseId) || courseId <= 0) {
+        return res.status(400).json({ message: "A valid course ID is required" });
+    }
+    const authorization = req.get("Authorization") || "";
+    const finish = async (user) => {
+        const access = await authorizeCourseRead(user, courseId);
+        if (!access.ok) return res.status(access.status).json({ message: access.message });
+        const counts = await pool.query(
+            `SELECT COUNT(*) FROM modules m JOIN lessons l ON l.module_id = m.id WHERE m.course_id = $1`,
+            [courseId]
+        );
+        return res.json({ ...access.course, lesson_count: counts.rows[0].count });
+    };
+    try {
+        if (/^Bearer\s+\S+$/i.test(authorization)) {
+            return authenticateToken(req, res, () => finish(req.user).catch((error) => {
+                console.error("Error fetching course:", error.message);
+                return res.status(500).json({ message: "Failed to fetch course" });
+            }));
+        }
+        return await finish(null);
+    } catch (error) {
+        console.error("Error fetching course:", error.message);
+        return res.status(500).json({ message: "Failed to fetch course" });
+    }
+});
+
 // POST create a new course
 router.post("/", authenticateToken, requireAdmin, async (req, res) => {
     try {
@@ -58,10 +90,11 @@ router.post("/", authenticateToken, requireAdmin, async (req, res) => {
         if (typeof published !== "boolean") return res.status(400).json({ message: "published must be true or false" });
         if (!validThumbnail(thumbnail)) return res.status(400).json({ message: "Thumbnail must be an HTTP(S) image URL or an uploaded thumbnail" });
 
-        // Validate title
-        if (typeof title !== "string" || title.trim() === "") {
+        const parsedTitle = parseTitle(title, "Course title");
+        if (parsedTitle.error) return res.status(400).json({ message: parsedTitle.error });
+        if (published === true) {
             return res.status(400).json({
-                message: "Course title is required"
+                message: "This course is not ready to publish: at least one module is required. Create it as a draft, add playable lessons, then publish."
             });
         }
 
@@ -71,7 +104,7 @@ router.post("/", authenticateToken, requireAdmin, async (req, res) => {
             VALUES ($1, $2, $3, $4)
             RETURNING *`,
             [
-                title.trim(),
+                parsedTitle.value,
                 description || null,
                 thumbnail || null,
                 published === true
@@ -96,22 +129,27 @@ router.patch("/:courseId", authenticateToken, requireAdmin, async (req, res) => 
     const id = Number(req.params.courseId);
     const { title, description, thumbnail, published } = req.body;
     if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ message: "A valid course ID is required" });
-    if (title !== undefined && (typeof title !== "string" || !title.trim())) return res.status(400).json({ message: "Course title is required" });
+    const parsedTitle = title === undefined ? null : parseTitle(title, "Course title");
+    if (parsedTitle && parsedTitle.error) return res.status(400).json({ message: parsedTitle.error });
     if (published !== undefined && typeof published !== "boolean") return res.status(400).json({ message: "Published must be true or false" });
     if (!validThumbnail(thumbnail)) return res.status(400).json({ message: "Thumbnail must be an HTTP(S) image URL or an uploaded thumbnail" });
     try {
+        if (published === true) {
+            const readiness = await courseReadiness(id);
+            if (!readiness.ok) return res.status(readiness.status).json({ message: readiness.message });
+        }
         const result = await pool.query(
             `UPDATE courses SET title = COALESCE($1, title), description = COALESCE($2, description),
              thumbnail = COALESCE($3, thumbnail), published = COALESCE($4, published)
              WHERE id = $5 RETURNING *`,
-            [title === undefined ? null : title.trim(), description === undefined ? null : description,
+            [parsedTitle ? parsedTitle.value : null, description === undefined ? null : description,
              thumbnail === undefined ? null : thumbnail, published === undefined ? null : published, id]
         );
         if (!result.rows.length) return res.status(404).json({ message: "Course not found" });
         return res.json({ course: result.rows[0] });
     } catch (error) {
-        console.error("Course update failed:", error.message);
-        return res.status(500).json({ message: "Could not update course" });
+        if (error && error.status === 503) return res.status(503).json({ message: "Could not verify lesson media" });
+        return respondWithDbError(res, error, "Could not update course");
     }
 });
 

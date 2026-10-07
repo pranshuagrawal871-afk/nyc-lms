@@ -36,11 +36,16 @@ const state = {
   activeCourse: null,
   activeModules: [],
   activeLessons: [],
+  activeLessonModuleId: null,
+  studentPage: 1,
+  studentTotal: 0,
+  studentLimit: 50,
 };
 
 let lastFocusedElement = null;
 let lessonsRequestId = 0;   // ignores stale lesson responses
 let modulesRequestId = 0;   // ignores stale module responses
+let lessonsAbort = null;
 let activeUploads = 0;      // warns before leaving mid-upload
 let thumbnailObjectUrl = null;
 
@@ -184,12 +189,30 @@ async function apiJson(url, options = {}) {
     const token = localStorage.getItem('token');
     if (token) headers.set('Authorization', `Bearer ${token}`);
     response = await fetch(apiUrl(url), { ...options, headers });
-  } catch (_) {
-    throw new Error('Cannot reach the backend server. Make sure the Express server is running.');
+  } catch (error) {
+    if (error && error.name === 'AbortError') {
+      const aborted = new Error('Request cancelled');
+      aborted.aborted = true;
+      throw aborted;
+    }
+    const network = new Error('Cannot reach the backend server. Make sure the Express server is running.');
+    network.status = 0;
+    throw network;
   }
   let body = {};
   try { body = await response.json(); } catch (_) { /* not JSON */ }
-  if (!response.ok) throw new Error(body.message || `Request failed (${response.status})`);
+  if (response.status === 401) {
+    try {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+    } catch (_) { /* ignore */ }
+    window.location.replace('login.html');
+  }
+  if (!response.ok) {
+    const failure = new Error(body.message || `Request failed (${response.status})`);
+    failure.status = response.status;
+    throw failure;
+  }
   return body;
 }
 
@@ -419,8 +442,8 @@ function renderStudents() {
   const body = document.getElementById('studentsTableBody');
   const wrap = document.getElementById('studentsTableWrap');
   const status = document.getElementById('studentsStatus');
-  const query = (document.getElementById('studentSearch').value || '').trim().toLowerCase();
-  const students = state.students.filter((student) => !query || `${student.name || ''} ${student.email || ''}`.toLowerCase().includes(query));
+  const query = (document.getElementById('studentSearch').value || '').trim();
+  const students = state.students;
   body.textContent = '';
   students.forEach((student) => {
     const row = document.createElement('tr');
@@ -769,43 +792,76 @@ async function loadCourseModules(preferredModuleId) {
 
     if (!modules.length) {
       el.courseContentStatus.textContent = 'Add a module to start building this course.';
-      el.courseLessonsList.textContent = '';
-      el.addLessonButton.disabled = true;
+      clearLessonControls('Add a module before adding lessons.');
       return;
     }
 
     const selected = modules.find((module) => String(module.id) === String(preferredModuleId));
     el.moduleSelect.value = String(selected ? selected.id : modules[0].id);
-    el.addLessonButton.disabled = false;
-    await loadModuleLessons();
+    await loadModuleLessons(course.id, el.moduleSelect.value);
   } catch (error) {
-    if (requestId !== modulesRequestId) return;
-    el.courseContentStatus.textContent = error.message;
+    if (requestId !== modulesRequestId || (error && error.aborted)) return;
+    clearLessonControls(error.message);
   }
 }
 
-async function loadModuleLessons() {
-  const moduleId = el.moduleSelect.value;
-  if (!moduleId) return;
+function clearLessonControls(message) {
+  if (lessonsAbort) lessonsAbort.abort();
+  lessonsRequestId += 1;
+  state.activeLessons = [];
+  state.activeLessonModuleId = null;
+  el.courseLessonsList.textContent = '';
+  el.addLessonButton.disabled = true;
+  if (message) el.courseContentStatus.textContent = message;
+}
+
+async function loadModuleLessons(courseId, moduleId) {
+  courseId = courseId || (state.activeCourse && state.activeCourse.id);
+  moduleId = moduleId || el.moduleSelect.value;
+  if (!courseId || !moduleId) {
+    clearLessonControls('Select a module.');
+    return;
+  }
+  if (lessonsAbort) lessonsAbort.abort();
+  lessonsAbort = new AbortController();
   const requestId = ++lessonsRequestId;
+  const signal = lessonsAbort.signal;
+  state.activeLessons = [];
+  state.activeLessonModuleId = null;
+  el.courseLessonsList.textContent = '';
+  el.addLessonButton.disabled = true;
+  el.courseContentStatus.textContent = 'Loading lessons…';
 
   try {
-    const lessons = await apiJson(`${API.lessons}/module/${moduleId}`);
-    // Ignore if the user switched modules or closed the modal meanwhile.
+    const lessons = await apiJson(`${API.lessons}/module/${encodeURIComponent(moduleId)}`, { signal });
     if (requestId !== lessonsRequestId || !state.activeCourse) return;
+    if (String(state.activeCourse.id) !== String(courseId)) return;
+    if (String(el.moduleSelect.value) !== String(moduleId)) return;
 
     state.activeLessons = lessons;
+    state.activeLessonModuleId = String(moduleId);
+    el.addLessonButton.disabled = false;
     el.courseContentStatus.textContent = lessons.length
       ? ''
       : 'No lessons yet. Add one above, then upload its media.';
-    renderModuleLessons();
+    renderModuleLessons(courseId, moduleId);
   } catch (error) {
-    if (requestId !== lessonsRequestId) return;
-    el.courseContentStatus.textContent = error.message;
+    if (requestId !== lessonsRequestId || (error && error.aborted)) return;
+    state.activeLessons = [];
+    state.activeLessonModuleId = null;
+    el.courseLessonsList.textContent = '';
+    el.addLessonButton.disabled = true;
+    el.courseContentStatus.textContent = `${error.message} `;
+    const retry = document.createElement('button');
+    retry.type = 'button';
+    retry.className = 'btn btn--secondary btn--sm';
+    retry.textContent = 'Try again';
+    retry.addEventListener('click', () => loadModuleLessons(courseId, moduleId));
+    el.courseContentStatus.appendChild(retry);
   }
 }
 
-function renderModuleLessons() {
+function renderModuleLessons(courseId, moduleId) {
   el.courseLessonsList.textContent = '';
   const fragment = document.createDocumentFragment();
 
@@ -882,6 +938,9 @@ function renderModuleLessons() {
 
     button.addEventListener('click', async () => {
       if (!input.files.length) return;
+      if (!state.activeCourse || String(state.activeCourse.id) !== String(courseId)) return;
+      if (String(state.activeLessonModuleId) !== String(moduleId)) return;
+      if (String(el.moduleSelect.value) !== String(moduleId)) return;
       const idleLabel = button.textContent;
 
       button.disabled = true;
@@ -913,7 +972,7 @@ function renderModuleLessons() {
         const doneMessage = `Upload complete. Detected duration: ${formatDuration(detectedSeconds)}.`;
         el.courseContentStatus.textContent = doneMessage;
         showToast(`"${lesson.title}" uploaded. Duration ${formatDuration(detectedSeconds)}.`);
-        await loadModuleLessons();
+        await loadModuleLessons(courseId, moduleId);
       } catch (error) {
         el.courseContentStatus.textContent = error.message;
         showToast(error.message, 'error');
@@ -949,7 +1008,13 @@ async function handleCreateModule(event) {
       body: JSON.stringify({ title, module_order: state.activeModules.length + 1 }),
     });
     el.newModuleTitle.value = '';
-    showToast(`Module "${title}" added.`);
+    showToast(result.course_unpublished ? result.message : `Module "${title}" added.`);
+    if (result.course_unpublished && state.activeCourse) {
+      state.activeCourse.published = false;
+      el.courseContentPublished.textContent = 'Draft';
+      el.courseContentPublished.className = 'badge badge--draft';
+      loadCourses();
+    }
     await loadCourseModules(result.module.id);
   } catch (error) {
     el.courseContentStatus.textContent = error.message;
@@ -962,11 +1027,16 @@ async function handleCreateLesson(event) {
   event.preventDefault();
   const title = el.newLessonTitle.value.trim();
   const moduleId = el.moduleSelect.value;
-  if (!title || !moduleId) return;
+  const courseId = state.activeCourse && state.activeCourse.id;
+  if (!title || !moduleId || !courseId) return;
+  if (String(state.activeLessonModuleId) !== String(moduleId)) {
+    el.courseContentStatus.textContent = 'Lesson controls are still loading for this module.';
+    return;
+  }
 
   el.addLessonButton.disabled = true;
   try {
-    await apiJson(`${API.lessons}/module/${moduleId}`, {
+    const result = await apiJson(`${API.lessons}/module/${encodeURIComponent(moduleId)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -976,12 +1046,18 @@ async function handleCreateLesson(event) {
       }),
     });
     el.newLessonTitle.value = '';
-    showToast(`Lesson "${title}" added.`);
-    await loadModuleLessons();
+    showToast(result.course_unpublished ? result.message : `Lesson "${title}" added.`);
+    if (result.course_unpublished && state.activeCourse) {
+      state.activeCourse.published = false;
+      el.courseContentPublished.textContent = 'Draft';
+      el.courseContentPublished.className = 'badge badge--draft';
+      loadCourses();
+    }
+    await loadModuleLessons(courseId, moduleId);
   } catch (error) {
     el.courseContentStatus.textContent = error.message;
   } finally {
-    el.addLessonButton.disabled = !el.moduleSelect.value;
+    el.addLessonButton.disabled = String(state.activeLessonModuleId) !== String(moduleId);
   }
 }
 
@@ -1070,34 +1146,116 @@ function signOut() {
   window.location.href = 'login.html';
 }
 
+function showSessionProblem(message, canRetry) {
+  let banner = document.getElementById('sessionProblem');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'sessionProblem';
+    banner.setAttribute('role', 'alert');
+    banner.style.cssText = 'margin:16px;padding:12px 16px;border-radius:12px;background:rgba(120,53,15,.45);color:#ffedd5;';
+    document.body.prepend(banner);
+  }
+  banner.textContent = `${message} `;
+  if (canRetry) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = 'Try again';
+    button.addEventListener('click', () => window.location.reload());
+    banner.appendChild(button);
+  }
+}
+
 async function verifyAdminSession() {
   if (!localStorage.getItem('token')) { window.location.replace('login.html'); return false; }
+  const session = await window.NYCSession.resolveSession();
+  if (session.status === 'invalid' || session.status === 'anonymous') {
+    window.location.replace('login.html');
+    return false;
+  }
+  if (session.status === 'forbidden') {
+    showSessionProblem('This account cannot open the admin workspace.', false);
+    return false;
+  }
+  if (session.status === 'unavailable') {
+    showSessionProblem('The server could not be reached. Your saved login was kept.', true);
+    return false;
+  }
+  if (!session.user || session.user.role !== 'admin') {
+    window.location.replace('dashboard.html');
+    return false;
+  }
+  return true;
+}
+
+async function loadStudents() {
+  const studentsStatus = document.getElementById('studentsStatus');
+  const params = new URLSearchParams({
+    page: String(state.studentPage || 1),
+    limit: '50',
+  });
+  const query = (document.getElementById('studentSearch').value || '').trim();
+  if (query) params.set('q', query);
   try {
-    const result = await apiJson('/api/auth/me');
-    if (result.user.role !== 'admin') { window.location.replace('dashboard.html'); return false; }
-    localStorage.setItem('user', JSON.stringify(result.user));
-    return true;
-  } catch (_) { signOut(); return false; }
+    const payload = await apiJson(`/api/admin/students?${params.toString()}`);
+    state.students = Array.isArray(payload) ? payload : (payload.students || []);
+    state.studentTotal = Array.isArray(payload) ? payload.length : Number(payload.total) || 0;
+    state.studentPage = Array.isArray(payload) ? 1 : Number(payload.page) || state.studentPage;
+    state.studentLimit = Array.isArray(payload) ? Math.max(state.students.length, 1) : Number(payload.limit) || 50;
+    renderStudents();
+    renderOverviewStudents();
+    renderStudentPager();
+    document.getElementById('statTotalStudents').textContent = String(state.studentTotal);
+  } catch (error) {
+    if (error && error.aborted) return;
+    studentsStatus.hidden = false;
+    studentsStatus.textContent = error.message;
+    el.overviewStudents.textContent = 'Student data is unavailable right now.';
+  }
+}
+
+function renderStudentPager() {
+  const pager = document.getElementById('studentsPager');
+  if (!pager) return;
+  const limit = state.studentLimit || 50;
+  const pages = Math.max(1, Math.ceil((state.studentTotal || 0) / limit));
+  pager.textContent = '';
+  if ((state.studentTotal || 0) <= limit) {
+    pager.hidden = true;
+    return;
+  }
+  pager.hidden = false;
+  const label = document.createElement('span');
+  label.textContent = `Page ${state.studentPage} of ${pages} (${state.studentTotal} students) `;
+  const previous = document.createElement('button');
+  previous.type = 'button';
+  previous.className = 'btn btn--secondary btn--sm';
+  previous.textContent = 'Previous';
+  previous.disabled = state.studentPage <= 1;
+  previous.addEventListener('click', () => {
+    state.studentPage -= 1;
+    loadStudents();
+  });
+  const next = document.createElement('button');
+  next.type = 'button';
+  next.className = 'btn btn--secondary btn--sm';
+  next.textContent = 'Next';
+  next.disabled = state.studentPage >= pages;
+  next.addEventListener('click', () => {
+    state.studentPage += 1;
+    loadStudents();
+  });
+  pager.append(label, previous, next);
 }
 
 async function loadAdminData() {
-  const [studentsResult, analyticsResult] = await Promise.allSettled([
-    apiJson('/api/admin/students'), apiJson('/api/admin/analytics')
+  const analyticsResult = await Promise.allSettled([
+    loadStudents(), apiJson('/api/admin/analytics')
   ]);
-  const studentsStatus = document.getElementById('studentsStatus');
-  if (studentsResult.status === 'fulfilled') {
-    state.students = studentsResult.value;
-    renderStudents();
-    renderOverviewStudents();
-    document.getElementById('statTotalStudents').textContent = String(state.students.length);
-  } else {
-    studentsStatus.hidden = false; studentsStatus.textContent = studentsResult.reason.message;
-    el.overviewStudents.textContent = 'Student data is unavailable right now.';
-  }
 
   const analyticsStatus = document.getElementById('analyticsStatus');
-  if (analyticsResult.status === 'fulfilled') {
-    const values = analyticsResult.value;
+  const analyticsPayload = analyticsResult[1];
+  if (analyticsPayload.status === 'fulfilled') {
+    const values = analyticsPayload.value;
     const metrics = document.getElementById('analyticsMetrics'); metrics.textContent = '';
     [['Students','total_students'],['Courses','total_courses'],['Published courses','published_courses'],['Lessons','total_lessons'],['Enrollments','total_enrollments'],['Completed lessons','completed_lessons'],['Completed courses','completed_courses']].forEach(([label,key]) => {
       const item = document.createElement('article'); item.className = 'admin-metric';
@@ -1107,7 +1265,7 @@ async function loadAdminData() {
     });
     metrics.hidden = false; analyticsStatus.hidden = true;
     document.getElementById('statTotalLessons').textContent = String(Number(values.total_lessons) || 0);
-  } else analyticsStatus.textContent = analyticsResult.reason.message;
+  } else analyticsStatus.textContent = analyticsPayload.reason.message;
 }
 
 async function changePassword(event) {
@@ -1124,7 +1282,13 @@ async function changePassword(event) {
   button.disabled = true; button.textContent = 'Saving…'; message.hidden = true;
   try {
     const result = await apiJson('/api/auth/change-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ currentPassword, newPassword }) });
-    form.reset(); message.className = 'settings-alert settings-alert--success'; message.textContent = result.message; message.hidden = false;
+    form.reset();
+    message.className = 'settings-alert settings-alert--success';
+    message.textContent = result.message;
+    message.hidden = false;
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    window.setTimeout(() => window.location.replace('login.html?passwordChanged=1'), 700);
   } catch (error) { message.textContent = error.message; message.hidden = false; }
   finally { button.disabled = false; button.textContent = 'Save password'; }
 }
@@ -1171,11 +1335,6 @@ function bindEvents() {
 
   // Forms
   document.getElementById('passwordForm').addEventListener('submit', changePassword);
-  document.querySelectorAll('[data-toggle-password]').forEach((button) => button.addEventListener('click', () => {
-    const input = document.getElementById(button.dataset.togglePassword);
-    input.type = input.type === 'password' ? 'text' : 'password';
-    button.textContent = input.type === 'password' ? 'Show' : 'Hide';
-  }));
   document.getElementById('newPassword').addEventListener('input', updatePasswordHints);
   document.getElementById('confirmPassword').addEventListener('input', updatePasswordHints);
   const reduceMotion = document.getElementById('reduceMotion');
@@ -1216,7 +1375,11 @@ function bindEvents() {
   });
   el.createModuleForm.addEventListener('submit', handleCreateModule);
   el.createLessonForm.addEventListener('submit', handleCreateLesson);
-  el.moduleSelect.addEventListener('change', loadModuleLessons);
+  el.moduleSelect.addEventListener('change', () => {
+    const courseId = state.activeCourse && state.activeCourse.id;
+    clearLessonControls('Loading lessons…');
+    if (courseId && el.moduleSelect.value) loadModuleLessons(courseId, el.moduleSelect.value);
+  });
   el.courseContentModal.querySelectorAll('[data-close-course-content]').forEach((node) => {
     node.addEventListener('click', closeCourseContent);
   });
@@ -1245,7 +1408,10 @@ function bindEvents() {
       renderCourses();
     }
   });
-  document.getElementById('studentSearch').addEventListener('input', renderStudents);
+  document.getElementById('studentSearch').addEventListener('input', debounce(() => {
+    state.studentPage = 1;
+    loadStudents();
+  }, 250));
 
   // Mobile sidebar
   el.btnToggleSidebar.addEventListener('click', () => toggleSidebar());

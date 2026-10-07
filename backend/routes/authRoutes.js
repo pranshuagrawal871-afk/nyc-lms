@@ -3,8 +3,11 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const pool = require("../config/db");
 const authenticateToken = require("../middleware/auth");
+const { createRateLimiter } = require("../lib/rateLimit");
 
 const router = express.Router();
+const limitRegistration = createRateLimiter({ windowMs: 60 * 60 * 1000, max: 8 });
+const limitLogin = createRateLimiter({ windowMs: 15 * 60 * 1000, max: 20 });
 
 function configuredSecret(res) {
     if (process.env.JWT_SECRET) return process.env.JWT_SECRET;
@@ -13,7 +16,7 @@ function configuredSecret(res) {
     return null;
 }
 
-router.post("/register", async (req, res) => {
+router.post("/register", limitRegistration, async (req, res) => {
     const name = typeof req.body.name === "string" ? req.body.name.trim() : "";
     const email = typeof req.body.email === "string" ? req.body.email.trim().toLowerCase() : "";
     const password = typeof req.body.password === "string" ? req.body.password : "";
@@ -49,7 +52,7 @@ router.post("/register", async (req, res) => {
     }
 });
 
-router.post("/login", async (req, res) => {
+router.post("/login", limitLogin, async (req, res) => {
     const email = typeof req.body.email === "string" ? req.body.email.trim().toLowerCase() : "";
     const password = typeof req.body.password === "string" ? req.body.password : "";
     if (!email || !password) {
@@ -61,7 +64,7 @@ router.post("/login", async (req, res) => {
 
     try {
         const result = await pool.query(
-            "SELECT id, name, email, role, password FROM users WHERE email = $1",
+            "SELECT id, name, email, role, password, session_version FROM users WHERE email = $1",
             [email]
         );
         const user = result.rows[0];
@@ -79,7 +82,7 @@ router.post("/login", async (req, res) => {
         }
 
         const token = jwt.sign(
-            { id: user.id, role: user.role, email: user.email },
+            { id: user.id, role: user.role, email: user.email, sv: Number(user.session_version) || 0 },
             secret,
             { expiresIn: "1d" }
         );
@@ -113,8 +116,13 @@ router.post("/change-password", authenticateToken, async (req, res) => {
         const valid = isHash ? await bcrypt.compare(currentPassword, stored) : currentPassword === stored;
         if (!valid) return res.status(401).json({ message: "Current password is incorrect" });
         const passwordHash = await bcrypt.hash(newPassword, 12);
-        await pool.query("UPDATE users SET password = $1 WHERE id = $2", [passwordHash, req.user.id]);
-        return res.json({ message: "Password changed successfully" });
+        // Incrementing session_version revokes every existing token, including this one.
+        // The caller must log in again. Raw passwords are never stored.
+        await pool.query(
+            "UPDATE users SET password = $1, session_version = session_version + 1 WHERE id = $2",
+            [passwordHash, req.user.id]
+        );
+        return res.json({ message: "Password changed. Please sign in again. Other sessions were signed out." });
     } catch (error) {
         console.error("Password change failed:", error.message);
         return res.status(500).json({ message: "Could not change password" });

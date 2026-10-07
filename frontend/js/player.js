@@ -88,8 +88,6 @@
 
   let lessonCompleted = false;
   let wasDragging = false;
-  let progressLoaded = false;
-  let saveInFlight = false;
   let saveWarned = false;
   let toastTimer = null;
   let activityTimer = null;
@@ -100,8 +98,15 @@
   let lessonLoadSequence = 0;
   let courseModules = [];
   let flatLessons = [];
+  let curriculumState = "loading";
+  let progressState = "loading";
+  let courseTotals = { total: 0, completed: 0 };
+  let progressRetryTimer = null;
+  let streamRecovery = { lessonId: null, attempts: 0, refreshing: false };
   const lessonElements = new Map();
   const progressByLesson = new Map();
+  const readyLessons = new Set();
+  const progressQueue = window.NYCProgress.createProgressQueue(postProgressSnapshot);
 
   /* ============================================================
      Helper functions
@@ -213,16 +218,16 @@
     flatLessons = [];
     progressByLesson.clear();
     lessonElements.clear();
+    readyLessons.clear();
+    curriculumState = "loading";
+    progressState = "loading";
+    renderCourseProgress();
 
     try {
       if (!Number.isSafeInteger(courseId) || courseId <= 0) {
         throw new Error("The course URL must contain a valid course ID.");
       }
-      const courses = await getJson("/api/courses");
-      const course = courses.find(function (entry) {
-        return Number(entry.id) === courseId;
-      });
-      if (!course) throw new Error("Course " + courseId + " was not found.");
+      const course = await getJson("/api/courses/" + encodeURIComponent(courseId));
       courseTitleText = course.title || "Course";
       courseTitleEl.textContent = courseTitleText;
       document.title = courseTitleText + " — NYC LMS";
@@ -235,10 +240,13 @@
         return Number(a.module_order) - Number(b.module_order);
       });
       if (!courseModules.length) {
+        curriculumState = "ready";
+        progressState = "ready";
+        courseTotals = { total: 0, completed: 0 };
         curriculumStatusEl.classList.remove("is-loading");
         curriculumStatusEl.textContent = "This course has no modules yet.";
         courseCountsEl.textContent = "0 Modules • 0 Lessons";
-        setCourseProgress(0);
+        renderCourseProgress();
         return;
       }
 
@@ -254,30 +262,49 @@
         }
       }));
 
+      const failedModules = moduleResults.filter(function (result) { return result.error; });
       courseModules = moduleResults;
       flatLessons = moduleResults.flatMap(function (result) {
         return result.lessons.map(function (lesson) {
           return Object.assign({ module: result.module }, lesson);
         });
       });
+      curriculumState = failedModules.length ? "incomplete" : "ready";
       renderCurriculum();
       courseCountsEl.textContent =
         moduleResults.length + (moduleResults.length === 1 ? " Module" : " Modules") +
         " • " + flatLessons.length + (flatLessons.length === 1 ? " Lesson" : " Lessons");
 
-      if (!flatLessons.length) {
+      if (curriculumState !== "ready") {
+        curriculumStatusEl.classList.remove("is-loading");
+        curriculumStatusEl.hidden = false;
+        curriculumStatusEl.textContent = "Some modules could not be loaded. Overall progress stays unavailable until the full curriculum loads. ";
+        const retry = document.createElement("button");
+        retry.type = "button";
+        retry.className = "retry-btn";
+        retry.textContent = "Try again";
+        retry.addEventListener("click", loadCourseCurriculum);
+        curriculumStatusEl.appendChild(retry);
+        progressState = "unknown";
+        renderCourseProgress();
+      } else if (!flatLessons.length) {
         curriculumStatusEl.classList.remove("is-loading");
         curriculumStatusEl.hidden = false;
         curriculumStatusEl.textContent = "No lessons are available in this course.";
-        setCourseProgress(0);
+        progressState = "ready";
+        courseTotals = { total: 0, completed: 0 };
+        renderCourseProgress();
         return;
+      } else {
+        curriculumStatusEl.hidden = true;
+        curriculumStatusEl.classList.remove("is-loading");
+        await loadCourseProgress();
       }
-
-      curriculumStatusEl.hidden = true;
-      curriculumStatusEl.classList.remove("is-loading");
-      await loadCourseProgress();
-      await loadLesson(pickResumeLesson());
+      if (flatLessons.length) await loadLesson(pickResumeLesson());
     } catch (error) {
+      curriculumState = "error";
+      progressState = "unknown";
+      renderCourseProgress();
       curriculumStatusEl.classList.remove("is-loading");
       curriculumStatusEl.hidden = false;
       curriculumStatusEl.textContent = "Unable to load course content: " + error.message + " ";
@@ -379,8 +406,9 @@
      Enrollment check
      ============================================================ */
 
-  // Enrolls automatically for published courses so that opening
-  // a course link always leaves an enrollment record behind.
+  // MVP courses are free. Opening a published course creates the enrollment
+  // entitlement. The server still rejects access and progress without it.
+  // Unpublished courses are not auto-enrolled; existing enrollments still open.
   async function ensureEnrolled(course) {
     if (IS_ADMIN) return;
     const status = await getJson("/api/enrollments/course/" + course.id, {
@@ -431,7 +459,20 @@
   }
 
   async function loadCourseProgress() {
-    if (!AUTH_TOKEN || IS_ADMIN || !flatLessons.length) return;
+    if (curriculumState !== "ready") {
+      progressState = "unknown";
+      renderCourseProgress();
+      return;
+    }
+    if (!AUTH_TOKEN || IS_ADMIN || !flatLessons.length) {
+      progressState = "ready";
+      courseTotals = { total: flatLessons.length, completed: 0 };
+      renderCourseProgress();
+      return;
+    }
+    progressState = "loading";
+    renderCourseProgress();
+    let lessonReadsFailed = false;
     await Promise.all(flatLessons.map(async function (lesson) {
       try {
         const progress = await getJson("/api/progress/" + lesson.id, {
@@ -440,10 +481,24 @@
         progressByLesson.set(String(lesson.id), progress);
         updateLessonCompletionUI(lesson.id, Boolean(progress.completed));
       } catch (error) {
+        lessonReadsFailed = true;
         console.error("Unable to load progress for lesson " + lesson.id + ":", error);
       }
     }));
-    updateCourseProgress();
+    try {
+      const summary = await getJson("/api/progress/course/" + encodeURIComponent(courseId), {
+        headers: authHeaders()
+      });
+      courseTotals = {
+        total: Number(summary.total_lessons) || 0,
+        completed: Number(summary.completed_lessons) || 0
+      };
+      progressState = lessonReadsFailed ? "unknown" : "ready";
+    } catch (error) {
+      progressState = "unknown";
+      console.error("Unable to load course progress:", error);
+    }
+    renderCourseProgress();
   }
 
   function updateLessonCompletionUI(lessonId, completed) {
@@ -458,14 +513,27 @@
   }
 
   function updateCourseProgress() {
-    const completed = flatLessons.reduce(function (count, lesson) {
-      const progress = progressByLesson.get(String(lesson.id));
-      return count + (progress && progress.completed ? 1 : 0);
-    }, 0);
-    const percent = flatLessons.length
-      ? Math.floor((completed / flatLessons.length) * 100)
-      : 0;
-    setCourseProgress(percent, flatLessons.length > 0 && completed === flatLessons.length);
+    if (progressState === "ready" && curriculumState === "ready") {
+      const completed = flatLessons.reduce(function (count, lesson) {
+        const progress = progressByLesson.get(String(lesson.id));
+        return count + (progress && progress.completed ? 1 : 0);
+      }, 0);
+      courseTotals = { total: flatLessons.length, completed: completed };
+    }
+    renderCourseProgress();
+  }
+
+  function renderCourseProgress() {
+    const view = window.NYCProgress.courseProgressView({
+      curriculumState: curriculumState,
+      progressState: progressState,
+      total: courseTotals.total,
+      completed: courseTotals.completed
+    });
+    courseProgressPct.textContent = view.label;
+    courseProgressFill.style.width = (view.percent || 0) + "%";
+    courseProgressFill.classList.toggle("complete", view.courseCompleted);
+    if (courseCompleteNote) courseCompleteNote.hidden = !view.courseCompleted;
   }
 
   function updateLessonNavigation() {
@@ -496,12 +564,18 @@
   async function loadLesson(lesson) {
     if (!lesson) return;
     const loadSequence = ++lessonLoadSequence;
-    if (currentLessonId && progressLoaded && video.duration) {
-      await saveDatabaseProgress(false, currentLessonId);
+    if (currentLessonId && readyLessons.has(String(currentLessonId)) && Number.isFinite(video.duration) && video.duration > 0) {
+      const leaving = window.NYCProgress.captureSnapshot({
+        lessonId: currentLessonId,
+        watchedSeconds: video.currentTime,
+        duration: video.duration,
+        completed: false
+      });
+      await saveSnapshot(leaving);
     }
     if (loadSequence !== lessonLoadSequence) return;
 
-    progressLoaded = false;
+    clearTimeout(progressRetryTimer);
     video.pause();
     currentLesson = lesson;
     currentLessonId = lesson.id;
@@ -540,7 +614,6 @@
       lessonStatusEl.textContent = "Media not available";
       const existing = progressByLesson.get(String(lesson.id));
       lessonCompleted = Boolean(existing && existing.completed);
-      progressLoaded = true;
       updateLessonNavigation();
       return;
     }
@@ -549,6 +622,7 @@
     try {
       const stream = await getJson("/api/stream/token/" + encodeURIComponent(lesson.id));
       if (String(currentLessonId) !== String(lesson.id)) return;
+      streamRecovery = { lessonId: lesson.id, attempts: 0, refreshing: false };
       video.src = apiUrl(stream.url);
     } catch (error) {
       lessonStatusEl.textContent = error.message || "Unable to authorize media playback.";
@@ -563,8 +637,23 @@
     await loadDatabaseProgress(lesson.id);
   }
 
+  function showProgressSyncError(lessonId, message) {
+    lessonStatusEl.textContent = message + " ";
+    const retry = document.createElement("button");
+    retry.type = "button";
+    retry.className = "retry-btn";
+    retry.textContent = "Retry sync";
+    retry.addEventListener("click", function () { loadDatabaseProgress(lessonId); });
+    lessonStatusEl.appendChild(retry);
+  }
+
   async function loadDatabaseProgress(lessonId) {
     if (!AUTH_TOKEN || IS_ADMIN || !lessonId) return;
+    clearTimeout(progressRetryTimer);
+    readyLessons.delete(String(lessonId));
+    if (String(currentLessonId) === String(lessonId)) {
+      lessonStatusEl.textContent = "Syncing your progress…";
+    }
     try {
       const data = await getJson("/api/progress/" + encodeURIComponent(lessonId), {
         headers: authHeaders()
@@ -572,10 +661,11 @@
       if (String(currentLessonId) !== String(lessonId)) return;
       progressByLesson.set(String(lessonId), data);
       lessonCompleted = Boolean(data.completed);
-      progressLoaded = true;
+      readyLessons.add(String(lessonId));
       updateLessonCompletionUI(lessonId, lessonCompleted);
       updateCourseProgress();
       updateLessonNavigation();
+      if (lessonStatusEl.textContent.indexOf("Syncing your progress") === 0) lessonStatusEl.textContent = "";
 
       const savedTime = Number(data.watched_seconds || 0);
       if (data.completed || savedTime <= 0) return;
@@ -591,8 +681,15 @@
       if (video.readyState >= 1) restorePosition();
       else video.addEventListener("loadedmetadata", restorePosition, { once: true });
     } catch (error) {
-      if (String(currentLessonId) === String(lessonId)) progressLoaded = true;
+      if (String(currentLessonId) !== String(lessonId)) return;
+      readyLessons.delete(String(lessonId));
       console.error("Could not load PostgreSQL progress:", error);
+      showProgressSyncError(lessonId, "Progress could not be loaded. Playback will not be saved until sync succeeds.");
+      progressRetryTimer = setTimeout(function () {
+        if (String(currentLessonId) === String(lessonId) && !readyLessons.has(String(lessonId))) {
+          loadDatabaseProgress(lessonId);
+        }
+      }, 4000);
     }
   }
 
@@ -687,13 +784,51 @@
     video.addEventListener(name, function () { player.classList.remove("buffering"); });
   });
 
-  video.addEventListener("error", function () {
+  video.addEventListener("playing", function () {
+    if (String(streamRecovery.lessonId) === String(currentLessonId)) streamRecovery.attempts = 0;
+  });
+
+  video.addEventListener("error", async function () {
     player.classList.remove("buffering");
     if (!video.getAttribute("src")) return; // we cleared the source on purpose
     const code = video.error && video.error.code;
-    lessonStatusEl.textContent = code === 4
-      ? "This media format is not supported by your browser."
-      : "This lesson could not be played. Check your connection and try again.";
+    const lessonId = currentLessonId;
+    const position = Number.isFinite(video.currentTime) ? video.currentTime : 0;
+    const decision = window.NYCProgress.planStreamRecovery({
+      errorCode: code,
+      attempts: streamRecovery.attempts,
+      maxAttempts: window.NYCProgress.MAX_STREAM_REFRESH
+    });
+    if (!lessonId || streamRecovery.refreshing || decision.action !== "refresh") {
+      lessonStatusEl.textContent = decision.reason === "limit"
+        ? "Playback authorization could not be renewed. Reload this lesson and try again."
+        : (code === 4
+          ? "This media format is not supported by your browser."
+          : "This lesson could not be played. Check your connection and try again.");
+      return;
+    }
+    streamRecovery.attempts += 1;
+    streamRecovery.refreshing = true;
+    streamRecovery.lessonId = lessonId;
+    try {
+      const stream = await getJson("/api/stream/token/" + encodeURIComponent(lessonId));
+      if (String(currentLessonId) !== String(lessonId)) return;
+      const restore = function () {
+        if (String(currentLessonId) !== String(lessonId)) return;
+        if (position > 1 && Number.isFinite(video.duration) && position < video.duration - 1) {
+          video.currentTime = position;
+        }
+      };
+      video.addEventListener("loadedmetadata", restore, { once: true });
+      video.src = apiUrl(stream.url);
+      video.load();
+      lessonStatusEl.textContent = "Refreshing playback authorization…";
+      video.play().catch(function () { /* the viewer can press play */ });
+    } catch (error) {
+      lessonStatusEl.textContent = "Playback authorization expired and could not be renewed. Reload this lesson and try again.";
+    } finally {
+      streamRecovery.refreshing = false;
+    }
   });
 
   /* ============================================================
@@ -878,95 +1013,75 @@
      Course progress UI
      ============================================================ */
 
-  function setCourseProgress(percent, isComplete) {
-    const pct = clamp(percent, 0, 100);
-    const complete = Boolean(isComplete) && pct >= 100;
-    courseProgressPct.textContent = pct + "%";
-    courseProgressFill.style.width = pct + "%";
-    courseProgressFill.classList.toggle("complete", complete);
-    if (courseCompleteNote) courseCompleteNote.hidden = !complete;
-  }
-
-  /* ============================================================
-     Mark lesson completed
-     ============================================================ */
-
-  function markLessonCompleted(announce, lessonId) {
-    if (announce === undefined) announce = true;
-    if (lessonId === undefined) lessonId = currentLessonId;
-    if (!lessonId) return;
-    if (String(lessonId) === String(currentLessonId)) lessonCompleted = true;
+  function reflectServerProgress(lessonId, progress) {
+    if (!progress) return;
     const id = String(lessonId);
-    const progress = progressByLesson.get(id) || {};
-    progress.completed = true;
     progressByLesson.set(id, progress);
-    updateLessonCompletionUI(lessonId, true);
+    const completed = Boolean(progress.completed);
+    if (String(currentLessonId) === id) lessonCompleted = completed;
+    updateLessonCompletionUI(lessonId, completed);
     updateCourseProgress();
     updateLessonNavigation();
+  }
 
-    if (announce) {
-      const allCompleted = flatLessons.length > 0 && flatLessons.every(isLessonCompleted);
-      showToast(allCompleted ? "Course completed!" : "Lesson completed");
-    }
+  function announceLessonCompleted(lessonId) {
+    const view = window.NYCProgress.courseProgressView({
+      curriculumState: curriculumState,
+      progressState: progressState,
+      total: courseTotals.total,
+      completed: courseTotals.completed
+    });
+    showToast(view.courseCompleted ? "Course completed!" : "Lesson completed");
+    if (String(currentLessonId) === String(lessonId)) updateLessonNavigation();
   }
 
   /* ============================================================
      Save progress to PostgreSQL
+     Ordinary saves omit completed. Only an explicit completion snapshot
+     sends completed:true. The server keeps completion once it is true.
      ============================================================ */
 
-  async function saveDatabaseProgress(completed, lessonId) {
-    if (completed === undefined) completed = false;
-    if (lessonId === undefined) lessonId = currentLessonId;
-
-    if (saveInFlight && completed) {
-      await new Promise(function (resolve) { setTimeout(resolve, 50); });
-      return saveDatabaseProgress(completed, lessonId);
-    }
-    if (!AUTH_TOKEN || IS_ADMIN || !lessonId || !progressLoaded || !video.duration || saveInFlight) {
-      return false;
-    }
-
-    const savedLessonId = lessonId;
-    const watchedSeconds = Math.floor(completed ? video.duration : video.currentTime);
-
-    saveInFlight = true;
-
-    try {
+  async function postProgressSnapshot(snapshot) {
+    const saved = await window.NYCProgress.deliverWithRetry(async function () {
+      const payload = {
+        lesson_id: snapshot.lessonId,
+        watched_seconds: snapshot.watchedSeconds,
+        duration: snapshot.duration
+      };
+      if (snapshot.completed === true) payload.completed = true;
       const response = await fetch(apiUrl("/api/progress"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: "Bearer " + AUTH_TOKEN
         },
-        body: JSON.stringify({
-          lesson_id: savedLessonId,
-          watched_seconds: watchedSeconds,
-          completed: completed
-        })
+        body: JSON.stringify(payload)
       });
-
       if (handleAuthenticationFailure(response)) return false;
-      if (!response.ok) throw new Error("HTTP " + response.status);
-
-      saveWarned = false;
-      const previous = progressByLesson.get(String(savedLessonId)) || {};
-      progressByLesson.set(String(savedLessonId), Object.assign({}, previous, {
-        watched_seconds: watchedSeconds,
-        completed: completed || Boolean(previous.completed)
-      }));
-      updateCourseProgress();
-      return true;
-    } catch (error) {
-      console.error("Progress save error:", error);
-      // Tell the student once per failure streak, not every 5 seconds.
-      if (!saveWarned) {
-        saveWarned = true;
-        showToast("Progress could not be saved. Check your connection.", "warn", 4500);
+      if (response.ok) {
+        const body = await response.json().catch(function () { return {}; });
+        saveWarned = false;
+        reflectServerProgress(snapshot.lessonId, body.progress);
+        return true;
+      }
+      if (response.status === 429 || response.status === 502 || response.status === 503 || response.status === 504) {
+        return "retry";
       }
       return false;
-    } finally {
-      saveInFlight = false;
+    });
+    if (!saved && !saveWarned) {
+      saveWarned = true;
+      showToast("Progress could not be saved. Check your connection.", "warn", 4500);
     }
+    return saved === true;
+  }
+
+  function saveSnapshot(snapshot) {
+    if (!AUTH_TOKEN || IS_ADMIN || !snapshot) return Promise.resolve(false);
+    if (!window.NYCProgress.canSaveProgress(readyLessons.has(String(snapshot.lessonId)) ? "ready" : "unknown")) {
+      return Promise.resolve(false);
+    }
+    return progressQueue.enqueue(snapshot);
   }
 
   /* ============================================================
@@ -974,25 +1089,57 @@
      ============================================================ */
 
   setInterval(function () {
-    if (progressLoaded && !video.paused && !video.ended) {
-      saveDatabaseProgress(false);
-    }
+    if (!currentLessonId || !readyLessons.has(String(currentLessonId))) return;
+    if (video.paused || video.ended || !Number.isFinite(video.duration) || video.duration <= 0) return;
+    saveSnapshot(window.NYCProgress.captureSnapshot({
+      lessonId: currentLessonId,
+      watchedSeconds: video.currentTime,
+      duration: video.duration,
+      completed: false
+    }));
   }, SAVE_INTERVAL);
 
   video.addEventListener("pause", function () {
-    if (!video.ended) saveDatabaseProgress(false);
+    if (video.ended || !currentLessonId || !readyLessons.has(String(currentLessonId))) return;
+    if (!Number.isFinite(video.duration) || video.duration <= 0) return;
+    saveSnapshot(window.NYCProgress.captureSnapshot({
+      lessonId: currentLessonId,
+      watchedSeconds: video.currentTime,
+      duration: video.duration,
+      completed: false
+    }));
   });
 
   video.addEventListener("ended", async function () {
-    const endedLessonId = currentLessonId;
-    const saved = await saveDatabaseProgress(true, endedLessonId);
-    if (saved) markLessonCompleted(true, endedLessonId);
+    if (!currentLessonId || !Number.isFinite(video.duration) || video.duration <= 0) return;
+    const snapshot = window.NYCProgress.captureSnapshot({
+      lessonId: currentLessonId,
+      watchedSeconds: video.duration,
+      duration: video.duration,
+      completed: true
+    });
+    const saved = await saveSnapshot(snapshot);
+    if (saved) announceLessonCompleted(snapshot.lessonId);
   });
 
   // Last-chance save when the page is closed or hidden (keepalive lets the
-  // request finish after the page is gone).
+  // request finish after the page is gone). The snapshot is captured before
+  // the request and does not read the player again.
   function flushProgress() {
-    if (!AUTH_TOKEN || IS_ADMIN || !currentLessonId || !progressLoaded || !video.duration) return;
+    if (!AUTH_TOKEN || IS_ADMIN || !currentLessonId || !readyLessons.has(String(currentLessonId))) return;
+    if (!Number.isFinite(video.duration) || video.duration <= 0) return;
+    const snapshot = window.NYCProgress.captureSnapshot({
+      lessonId: currentLessonId,
+      watchedSeconds: video.ended ? video.duration : video.currentTime,
+      duration: video.duration,
+      completed: video.ended === true
+    });
+    const payload = {
+      lesson_id: snapshot.lessonId,
+      watched_seconds: snapshot.watchedSeconds,
+      duration: snapshot.duration
+    };
+    if (snapshot.completed) payload.completed = true;
     fetch(apiUrl("/api/progress"), {
       method: "POST",
       keepalive: true,
@@ -1000,11 +1147,7 @@
         "Content-Type": "application/json",
         Authorization: "Bearer " + AUTH_TOKEN
       },
-      body: JSON.stringify({
-        lesson_id: currentLessonId,
-        watched_seconds: Math.floor(video.ended ? video.duration : video.currentTime),
-        completed: video.ended || lessonCompleted
-      })
+      body: JSON.stringify(payload)
     }).catch(function (error) {
       console.error("Progress save during page exit failed:", error);
     });
